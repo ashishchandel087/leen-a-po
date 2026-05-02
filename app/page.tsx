@@ -1,65 +1,193 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
+
+interface ApodData {
+  title: string;
+  date: string;
+  explanation: string;
+  url: string;
+  hdurl?: string;
+  media_type: string;
+  copyright?: string;
+}
+
+interface Star {
+  width: string;
+  height: string;
+  top: string;
+  left: string;
+  opacity: number;
+  animation: string;
+  animationDelay: string;
+}
+
+function StarField() {
+  const [stars, setStars] = useState<Star[]>([]);
+
+  useEffect(() => {
+    const generated = Array.from({ length: 80 }).map(() => ({
+      width: Math.random() * 2 + 1 + "px",
+      height: Math.random() * 2 + 1 + "px",
+      top: Math.random() * 100 + "%",
+      left: Math.random() * 100 + "%",
+      opacity: Math.random() * 0.7 + 0.3,
+      animation: `twinkle ${Math.random() * 3 + 2}s ease-in-out infinite`,
+      animationDelay: Math.random() * 3 + "s",
+    }));
+    setStars(generated);
+  }, []);
+
+  return (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+      {stars.map((star, i) => (
+        <div
+          key={i}
+          className="absolute rounded-full bg-white"
+          style={star}
+        />
+      ))}
+    </div>
+  );
+}
+
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-6">
+      <StarField />
+      <div className="relative z-10 flex flex-col items-center gap-4">
+        <div className="text-5xl animate-pulse">🔭</div>
+        <p className="text-white/60 text-sm tracking-widest uppercase animate-pulse">
+          Scanning the universe...
+        </p>
+        <div className="flex gap-1 mt-2">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="w-2 h-2 rounded-full bg-purple-400 animate-bounce"
+              style={{ animationDelay: `${i * 0.15}s` }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Home() {
+  const [data, setData] = useState<ApodData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/apod")
+      .then((r) => r.json())
+      .then((d) => {
+        setData(d);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError("Couldn't reach the stars today 🌌");
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) return <LoadingScreen />;
+
+  if (error || !data) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <StarField />
+        <p className="text-white/60 text-center z-10">{error}</p>
+      </div>
+    );
+  }
+
+  // NASA APOD date is a plain date string (e.g. "2025-05-03"), parse as UTC noon
+  // to avoid date shifting, then display in IST
+  const formattedDate = new Date(data.date + "T12:00:00Z").toLocaleDateString("en-IN", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "Asia/Kolkata",
+  });
+
+  const shortExplanation =
+    data.explanation.length > 300
+      ? data.explanation.slice(0, 300) + "..."
+      : data.explanation;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+    <div className="min-h-screen bg-black text-white">
+      <StarField />
+
+      {/* Header */}
+      <header className="relative z-10 pt-12 pb-4 px-5 text-center">
+        <h1 className="text-2xl font-bold tracking-tight text-white">
+          Picture of the Day
+        </h1>
+        <p className="text-white/40 text-xs mt-1">{formattedDate}</p>
+      </header>
+
+      {/* Image / Video */}
+      <div className="relative z-10 mx-4 mt-3 rounded-2xl overflow-hidden shadow-2xl shadow-purple-900/30 border border-white/5">
+        {data.media_type === "video" ? (
+          <div className="aspect-video w-full">
+            <iframe
+              src={data.url}
+              className="w-full h-full"
+              allowFullScreen
+              title={data.title}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </div>
+        ) : (
+          <div className="relative w-full">
+            {!imgLoaded && (
+              <div className="w-full h-64 bg-white/5 animate-pulse rounded-2xl" />
+            )}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={data.hdurl ?? data.url}
+              alt={data.title}
+              className={`w-full h-auto transition-opacity duration-700 ${
+                imgLoaded ? "opacity-100" : "opacity-0 absolute inset-0"
+              }`}
+              onLoad={() => setImgLoaded(true)}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Title + copyright */}
+      <div className="relative z-10 px-5 mt-5">
+        <h2 className="text-xl font-bold leading-snug text-white">{data.title}</h2>
+        {data.copyright && (
+          <p className="text-white/30 text-xs mt-1">
+            © {data.copyright.trim()}
+          </p>
+        )}
+      </div>
+
+      {/* Description */}
+      <div className="relative z-10 px-5 mt-4 pb-16">
+        <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+          <p className="text-white/70 text-sm leading-relaxed">
+            {expanded ? data.explanation : shortExplanation}
+          </p>
+          {data.explanation.length > 300 && (
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="mt-3 text-purple-400 text-xs font-semibold tracking-wide hover:text-purple-300 transition-colors"
+            >
+              {expanded ? "Show less ↑" : "Read more ↓"}
+            </button>
+          )}
         </div>
-      </main>
+
+      </div>
     </div>
   );
 }
