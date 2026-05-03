@@ -10,7 +10,7 @@ const geist = Geist({
 
 export const metadata: Metadata = {
   title: "leen-a-po",
-  description: "NASA Astronomy Picture of the Day",
+  description: "A little app for us 🌙",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
