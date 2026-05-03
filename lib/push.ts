@@ -1,16 +1,19 @@
 import webpush from "web-push";
 import { prisma } from "./prisma";
 
-webpush.setVapidDetails(
-  `mailto:${process.env.VAPID_EMAIL}`,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-);
+function init() {
+  webpush.setVapidDetails(
+    `mailto:${process.env.VAPID_EMAIL}`,
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+    process.env.VAPID_PRIVATE_KEY!
+  );
+}
 
 export async function sendPushToOthers(
   senderUserId: string,
   payload: { title: string; body: string; url?: string }
 ) {
+  init();
   const subs = await prisma.pushSubscription.findMany({
     where: { userId: { not: senderUserId } },
   });
@@ -24,7 +27,6 @@ export async function sendPushToOthers(
           JSON.stringify(payload)
         )
         .catch(() => {
-          // Expired subscription — clean it up silently
           prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
         })
     )
@@ -34,6 +36,7 @@ export async function sendPushToOthers(
 export async function sendPushToAll(
   payload: { title: string; body: string; url?: string }
 ) {
+  init();
   const subs = await prisma.pushSubscription.findMany();
   if (!subs.length) return;
 
