@@ -97,7 +97,7 @@ function MoonMeetCanvas() {
 
     const midY = CH / 2 - imgSize / 2;
 
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
     if (!ctx) return;
 
     type Item = {
