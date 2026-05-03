@@ -49,3 +49,20 @@ model TimelineEvent {
   reason    String?
   createdAt DateTime @default(now())
 }
+
+model PissOffLog {
+  id        String   @id @default(cuid())
+  who       String   // "ashish" | "leena"
+  reason    String
+  level     Int      // 1–5
+  createdAt DateTime @default(now())
+}
+
+model SpecialOccasion {
+  id        String   @id @default(cuid())
+  title     String
+  date      String   // YYYY-MM-DD
+  emoji     String   @default("🎉")
+  note      String?
+  createdAt DateTime @default(now())
+}

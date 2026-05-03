@@ -42,6 +42,14 @@ interface TimelineEvent {
   reason: string | null;
 }
 
+interface SpecialOccasion {
+  id: string;
+  title: string;
+  date: string;
+  emoji: string;
+  note: string | null;
+}
+
 const EVENT_CONFIG: Record<string, { color: string; bg: string; border: string; dot: string; icon: string }> = {
   start:     { color: "text-green-300",  bg: "bg-green-900/20",  border: "border-green-500/30",  dot: "bg-green-400",   icon: "💚" },
   break:     { color: "text-red-300",    bg: "bg-red-900/20",    border: "border-red-500/30",    dot: "bg-red-400",     icon: "💔" },
@@ -135,11 +143,19 @@ export default function Dashboard() {
   const [moods, setMoods] = useState<MoodLog[]>([]);
   const [bucketItems, setBucketItems] = useState<BucketItem[]>([]);
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
+  const [occasions, setOccasions] = useState<SpecialOccasion[]>([]);
   const [selectedMood, setSelectedMood] = useState("");
   const [moodNote, setMoodNote] = useState("");
   const [newBucketItem, setNewBucketItem] = useState("");
   const [loadingMood, setLoadingMood] = useState(false);
   const [loadingBucket, setLoadingBucket] = useState(false);
+  // Occasions form state
+  const [occTitle, setOccTitle] = useState("");
+  const [occDate, setOccDate] = useState("");
+  const [occEmoji, setOccEmoji] = useState("🎉");
+  const [occNote, setOccNote] = useState("");
+  const [loadingOcc, setLoadingOcc] = useState(false);
+  const [showOccForm, setShowOccForm] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login");
@@ -150,6 +166,7 @@ export default function Dashboard() {
       fetch("/api/mood").then((r) => r.ok ? r.json() : []).then(setMoods);
       fetch("/api/bucket").then((r) => r.ok ? r.json() : []).then(setBucketItems);
       fetch("/api/timeline").then((r) => r.ok ? r.json() : []).then(setTimelineEvents);
+      fetch("/api/occasions").then((r) => r.ok ? r.json() : []).then(setOccasions);
     }
   }, [status]);
 
@@ -206,6 +223,41 @@ export default function Dashboard() {
     setBucketItems((prev) => prev.filter((item) => item.id !== id));
   }
 
+  async function addOccasion() {
+    if (!occTitle.trim() || !occDate) return;
+    setLoadingOcc(true);
+    const res = await fetch("/api/occasions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: occTitle, date: occDate, emoji: occEmoji, note: occNote || null }),
+    });
+    const occ = await res.json();
+    setOccasions((prev) => [...prev, occ].sort((a, b) => a.date.localeCompare(b.date)));
+    setOccTitle("");
+    setOccDate("");
+    setOccEmoji("🎉");
+    setOccNote("");
+    setShowOccForm(false);
+    setLoadingOcc(false);
+  }
+
+  async function deleteOccasion(id: string) {
+    await fetch("/api/occasions", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    setOccasions((prev) => prev.filter((o) => o.id !== id));
+  }
+
+  function daysUntil(dateStr: string) {
+    const today = new Date().toISOString().split("T")[0];
+    const diff = Math.ceil(
+      (new Date(dateStr + "T12:00:00Z").getTime() - new Date(today + "T12:00:00Z").getTime()) / 86400000
+    );
+    return diff;
+  }
+
   if (status === "loading" || status === "unauthenticated") {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -232,6 +284,7 @@ export default function Dashboard() {
             </Link>
           )}
           <Link href="/about" className="text-white/40 text-xs hover:text-white/60">About Us</Link>
+          <Link href="/pissoff" className="text-orange-400 text-xs hover:text-orange-300">😤 Meter</Link>
           <Link href="/apod" className="text-white/40 text-xs hover:text-white/60">APOD</Link>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
@@ -371,6 +424,112 @@ export default function Dashboard() {
             <p className="text-white/30 text-sm text-center py-4">No plans yet... add some! 💫</p>
           )}
         </div>
+
+        {/* Special Occasions */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-sm">Special Occasions 🗓️✨</h2>
+            <button
+              onClick={() => setShowOccForm((v) => !v)}
+              className="text-purple-400 text-xs hover:text-purple-300 font-medium transition-colors"
+            >
+              {showOccForm ? "Cancel" : "+ Add"}
+            </button>
+          </div>
+
+          {/* Add form */}
+          {showOccForm && (
+            <div className="mb-5 bg-white/5 border border-white/10 rounded-xl p-4 flex flex-col gap-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={occTitle}
+                  onChange={(e) => setOccTitle(e.target.value)}
+                  placeholder="Occasion title..."
+                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-purple-500"
+                />
+                <input
+                  type="text"
+                  value={occEmoji}
+                  onChange={(e) => setOccEmoji(e.target.value)}
+                  maxLength={2}
+                  placeholder="🎉"
+                  className="w-14 text-center bg-white/5 border border-white/10 rounded-xl px-2 py-2 text-lg focus:outline-none focus:border-purple-500"
+                />
+              </div>
+              <input
+                type="date"
+                value={occDate}
+                onChange={(e) => setOccDate(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
+              />
+              <input
+                type="text"
+                value={occNote}
+                onChange={(e) => setOccNote(e.target.value)}
+                placeholder="Note... (optional)"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-purple-500"
+              />
+              <button
+                onClick={addOccasion}
+                disabled={!occTitle.trim() || !occDate || loadingOcc}
+                className="w-full py-2 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-sm font-semibold transition-colors"
+              >
+                {loadingOcc ? "Saving..." : "Save Occasion ✨"}
+              </button>
+            </div>
+          )}
+
+          {occasions.length === 0 ? (
+            <p className="text-white/30 text-sm text-center py-4">No occasions yet — add something to remember! 🌟</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {occasions.map((occ) => {
+                const days = daysUntil(occ.date);
+                const isPast = days < 0;
+                const isToday = days === 0;
+                return (
+                  <div key={occ.id} className={`group flex items-start gap-3 rounded-xl px-4 py-3 border transition-all ${
+                    isToday
+                      ? "bg-yellow-900/20 border-yellow-500/30"
+                      : isPast
+                      ? "bg-white/5 border-white/10 opacity-50"
+                      : "bg-white/5 border-white/10"
+                  }`}>
+                    <span className="text-2xl mt-0.5 leading-none">{occ.emoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white/90 truncate">{occ.title}</p>
+                      <p className="text-xs text-white/40 mt-0.5">
+                        {new Date(occ.date + "T12:00:00Z").toLocaleDateString("en-IN", {
+                          timeZone: "Asia/Kolkata", day: "numeric", month: "long", year: "numeric",
+                        })}
+                      </p>
+                      {occ.note && <p className="text-xs text-white/40 italic mt-0.5 truncate">"{occ.note}"</p>}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${
+                        isToday
+                          ? "bg-yellow-500/20 text-yellow-300"
+                          : isPast
+                          ? "bg-white/10 text-white/30"
+                          : days <= 7
+                          ? "bg-pink-900/40 text-pink-300"
+                          : "bg-purple-900/40 text-purple-300"
+                      }`}>
+                        {isToday ? "Today! 🎉" : isPast ? `${Math.abs(days)}d ago` : `in ${days}d`}
+                      </span>
+                      <button
+                        onClick={() => deleteOccasion(occ.id)}
+                        className="opacity-0 group-hover:opacity-100 text-white/30 hover:text-red-400 text-xs transition-all"
+                      >✕</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
   );
