@@ -41,3 +41,23 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# SQLite databases (local dev only — production uses Neon PostgreSQL)
+*.db
+*.db-shm
+*.db-wal
+prisma/prisma/
+
+# AI tooling / local context files
+AGENTS.md
+CLAUDE.md
+
+# Prisma local config (auto-generated, not needed on Vercel)
+prisma.config.ts
+
+# Default Next.js template assets (unused)
+public/file.svg
+public/globe.svg
+public/next.svg
+public/vercel.svg
+public/window.svg
