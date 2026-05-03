@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
+import Providers from "./providers";
 
 const geist = Geist({
   variable: "--font-geist-sans",
@@ -31,7 +32,9 @@ export default function RootLayout({
         <meta name="theme-color" content="#000000" />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       </head>
-      <body className="min-h-full bg-black text-white">{children}</body>
+      <body className="min-h-full bg-black text-white">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

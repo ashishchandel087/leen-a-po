@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id @default(cuid())
+  email     String    @unique
+  password  String
+  name      String
+  role      String    @default("user")
+  createdAt DateTime  @default(now())
+  moods     MoodLog[]
+}
+
+model MoodLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  mood      String
+  note      String?
+  createdAt DateTime @default(now())
+}
+
+model BucketItem {
+  id          String    @id @default(cuid())
+  title       String
+  completed   Boolean   @default(false)
+  addedById   String
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+model Config {
+  key   String @id
+  value String
+}
+
+model TimelineEvent {
+  id        String  @id @default(cuid())
+  type      String  // "start" | "break" | "reunion" | "milestone"
+  date      String  // YYYY-MM-DD
+  endDate   String? // YYYY-MM-DD — for breaks only
+  title     String
+  reason    String?
+  createdAt DateTime @default(now())
+}

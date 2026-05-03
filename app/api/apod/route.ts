@@ -4,9 +4,11 @@ const NASA_API_KEY = "QDR3SPu7cWhusxn4bQTerT5Zb1ZAY5xXZp4Ydjhg";
 
 export async function GET() {
   try {
+    // Include today's date so each day gets its own cache key — prevents stale images
+    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD UTC
     const res = await fetch(
-      `https://api.nasa.gov/planetary/apod?api_key=${NASA_API_KEY}`,
-      { next: { revalidate: 86400 } } // cache for 24 hours — NASA APOD updates once daily
+      `https://api.nasa.gov/planetary/apod?api_key=${NASA_API_KEY}&date=${today}`,
+      { next: { revalidate: 86400 } } // cache for 24 hours, auto-busts each new day
     );
 
     if (!res.ok) {
