@@ -43,10 +43,10 @@ const ASHISH: Person = {
   birthdayMoon: { phase: "Waxing Crescent", emoji: "🌒", illumination: "14.64%" },
   traits: ["Intuitive", "Nurturing", "Loyal", "Protective", "Empathetic"],
   desc: "Ruled by the Moon, Cancers feel deeply and love fiercely. Ashish carries a quiet strength — protective of those he loves and deeply in tune with emotions around him.",
-  gradient: "from-sky-950 to-blue-950",
-  border: "border-sky-500/25",
-  accent: "text-sky-300",
-  tagBg: "bg-sky-900/40 text-sky-300",
+  gradient: "from-pink-950 to-rose-950",
+  border: "border-pink-500/25",
+  accent: "text-pink-300",
+  tagBg: "bg-pink-900/40 text-pink-300",
 };
 
 const LEENA: Person = {
@@ -65,10 +65,10 @@ const LEENA: Person = {
   birthdayMoon: { phase: "Full Moon", emoji: "🌕", illumination: "98.84%" },
   traits: ["Passionate", "Mysterious", "Loyal", "Determined", "Magnetic"],
   desc: "Scorpios are the most intense and magnetic of the water signs. Leena loves completely and fiercely — her loyalty runs deeper than words, and her presence is impossible to ignore.",
-  gradient: "from-purple-950 to-rose-950",
-  border: "border-purple-500/25",
-  accent: "text-purple-300",
-  tagBg: "bg-purple-900/40 text-purple-300",
+  gradient: "from-rose-950 to-red-950",
+  border: "border-rose-600/30",
+  accent: "text-rose-300",
+  tagBg: "bg-rose-900/40 text-rose-300",
 };
 
 const COMPAT = [
@@ -265,12 +265,12 @@ export default function AboutPage() {
   }, [status, router]);
 
   if (status === "loading") {
-    return <div className="min-h-screen bg-black flex items-center justify-center text-white/40 animate-pulse">Loading...</div>;
+    return <div className="min-h-screen bg-[#0a0305] flex items-center justify-center text-white/40 animate-pulse">Loading...</div>;
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="sticky top-0 z-20 bg-black/80 backdrop-blur border-b border-white/10 px-5 py-4 flex items-center justify-between">
+    <div className="min-h-screen bg-[#0a0305] text-white">
+      <header className="sticky top-0 z-20 bg-[#0a0305]/80 backdrop-blur border-b border-white/10 px-5 py-4 flex items-center justify-between">
         <div>
           <h1 className="font-bold">About Us 🌌</h1>
           <p className="text-white/40 text-xs">Stars, signs &amp; souls</p>

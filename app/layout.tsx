@@ -29,10 +29,10 @@ export default function RootLayout({
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="theme-color" content="#000000" />
+        <meta name="theme-color" content="#0a0305" />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       </head>
-      <body className="min-h-full bg-black text-white">
+      <body className="min-h-full bg-[#0a0305] text-white">
         <Providers>{children}</Providers>
       </body>
     </html>

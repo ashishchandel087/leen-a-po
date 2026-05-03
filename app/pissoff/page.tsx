@@ -22,8 +22,8 @@ const LEVELS = [
 ];
 
 const WHO_CONFIG = {
-  ashish: { label: "Ashish", color: "bg-sky-600",    border: "border-sky-500",    text: "text-sky-300",    bar: "#38bdf8" },
-  leena:  { label: "Leena",  color: "bg-purple-600", border: "border-purple-500", text: "text-purple-300", bar: "#c084fc" },
+  ashish: { label: "Ashish", color: "bg-pink-700",   border: "border-pink-500",   text: "text-pink-300",   bar: "#f9a8d4" },
+  leena:  { label: "Leena",  color: "bg-rose-700",   border: "border-rose-600",   text: "text-rose-300",   bar: "#be123c" },
 };
 
 function levelInfo(l: number) { return LEVELS.find(x => x.level === l) ?? LEVELS[0]; }
@@ -85,20 +85,20 @@ function BarChart({ logs }: { logs: PissOffLog[] }) {
               {/* Ashish bar */}
               <rect
                 x={x} y={chartH - aH} width={barW} height={aH}
-                fill="#38bdf8" rx="2"
+                fill="#f9a8d4" rx="2"
               />
               {aH > 0 && (
-                <text x={x + barW / 2} y={chartH - aH - 3} textAnchor="middle" fontSize="9" fill="#38bdf8">
+                <text x={x + barW / 2} y={chartH - aH - 3} textAnchor="middle" fontSize="9" fill="#f9a8d4">
                   {counts[lvl].ashish}
                 </text>
               )}
               {/* Leena bar */}
               <rect
                 x={x + barW + gap} y={chartH - lH} width={barW} height={lH}
-                fill="#c084fc" rx="2"
+                fill="#be123c" rx="2"
               />
               {lH > 0 && (
-                <text x={x + barW + gap + barW / 2} y={chartH - lH - 3} textAnchor="middle" fontSize="9" fill="#c084fc">
+                <text x={x + barW + gap + barW / 2} y={chartH - lH - 3} textAnchor="middle" fontSize="9" fill="#be123c">
                   {counts[lvl].leena}
                 </text>
               )}
@@ -183,7 +183,7 @@ export default function PissOffPage() {
   }
 
   if (status === "loading") {
-    return <div className="min-h-screen bg-black flex items-center justify-center text-white/40 animate-pulse">Loading...</div>;
+    return <div className="min-h-screen bg-[#0a0305] flex items-center justify-center text-white/40 animate-pulse">Loading...</div>;
   }
 
   // ── Stats ──
@@ -204,8 +204,8 @@ export default function PissOffPage() {
   );
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="sticky top-0 z-20 bg-black/80 backdrop-blur border-b border-white/10 px-5 py-4 flex items-center justify-between">
+    <div className="min-h-screen bg-[#0a0305] text-white">
+      <header className="sticky top-0 z-20 bg-[#0a0305]/80 backdrop-blur border-b border-white/10 px-5 py-4 flex items-center justify-between">
         <div>
           <h1 className="font-bold">Piss-O-Meter 😤</h1>
           <p className="text-white/40 text-xs">Who&apos;s the bigger menace?</p>
@@ -220,22 +220,22 @@ export default function PissOffPage() {
           <p className="text-xs text-white/30 uppercase tracking-widest mb-4 text-center">Total Piss Score</p>
           <div className="flex items-center justify-between mb-3">
             <div className="text-center">
-              <p className="text-sky-300 font-bold text-2xl">{ashishTotal}</p>
+              <p className="text-pink-300 font-bold text-2xl">{ashishTotal}</p>
               <p className="text-white/50 text-xs">Ashish</p>
             </div>
             <p className="text-white/20 text-xs">pts</p>
             <div className="text-center">
-              <p className="text-purple-300 font-bold text-2xl">{leenaTotal}</p>
+              <p className="text-rose-300 font-bold text-2xl">{leenaTotal}</p>
               <p className="text-white/50 text-xs">Leena</p>
             </div>
           </div>
           <div className="h-3 bg-white/10 rounded-full overflow-hidden flex">
-            <div className="bg-sky-500 transition-all duration-700" style={{ width: `${ashishPct}%` }} />
-            <div className="bg-purple-500 transition-all duration-700" style={{ width: `${leenaPct}%` }} />
+            <div className="bg-pink-400 transition-all duration-700" style={{ width: `${ashishPct}%` }} />
+            <div className="bg-rose-700 transition-all duration-700" style={{ width: `${leenaPct}%` }} />
           </div>
           <div className="flex justify-between mt-1">
-            <span className="text-sky-400 text-xs">{ashishPct}%</span>
-            <span className="text-purple-400 text-xs">{leenaPct}%</span>
+            <span className="text-pink-400 text-xs">{ashishPct}%</span>
+            <span className="text-rose-400 text-xs">{leenaPct}%</span>
           </div>
           <div className="grid grid-cols-2 gap-2 mt-4">
             <div className="bg-white/5 rounded-xl px-3 py-2 text-center">

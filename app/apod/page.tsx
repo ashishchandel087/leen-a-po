@@ -54,7 +54,7 @@ function StarField() {
 
 function LoadingScreen() {
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-6">
+    <div className="min-h-screen bg-[#0a0305] flex flex-col items-center justify-center gap-6">
       <StarField />
       <div className="relative z-10 flex flex-col items-center gap-4">
         <div className="text-5xl animate-pulse">🔭</div>
@@ -65,7 +65,7 @@ function LoadingScreen() {
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="w-2 h-2 rounded-full bg-purple-400 animate-bounce"
+              className="w-2 h-2 rounded-full bg-rose-400 animate-bounce"
               style={{ animationDelay: `${i * 0.15}s` }}
             />
           ))}
@@ -99,7 +99,7 @@ export default function Home() {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-[#0a0305] flex items-center justify-center">
         <StarField />
         <p className="text-white/60 text-center z-10">{error}</p>
       </div>
@@ -122,7 +122,7 @@ export default function Home() {
       : data.explanation;
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[#0a0305] text-white">
       <StarField />
 
       {/* Header */}
@@ -130,7 +130,7 @@ export default function Home() {
         <div className="flex items-center justify-between mb-1">
           <Link
             href="/dashboard"
-            className="text-xs text-purple-400 hover:text-purple-300 transition-colors font-medium"
+            className="text-xs text-rose-400 hover:text-rose-300 transition-colors font-medium"
           >
             ← Dashboard
           </Link>
@@ -142,7 +142,7 @@ export default function Home() {
       </header>
 
       {/* Image / Video */}
-      <div className="relative z-10 mx-4 mt-3 rounded-2xl overflow-hidden shadow-2xl shadow-purple-900/30 border border-white/5">
+      <div className="relative z-10 mx-4 mt-3 rounded-2xl overflow-hidden shadow-2xl shadow-rose-900/30 border border-white/5">
         {data.media_type === "video" ? (
           <div className="aspect-video w-full">
             <iframe
@@ -189,7 +189,7 @@ export default function Home() {
           {data.explanation.length > 300 && (
             <button
               onClick={() => setExpanded(!expanded)}
-              className="mt-3 text-purple-400 text-xs font-semibold tracking-wide hover:text-purple-300 transition-colors"
+              className="mt-3 text-rose-400 text-xs font-semibold tracking-wide hover:text-rose-300 transition-colors"
             >
               {expanded ? "Show less ↑" : "Read more ↓"}
             </button>

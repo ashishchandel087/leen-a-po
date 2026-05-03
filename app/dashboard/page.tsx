@@ -53,7 +53,7 @@ interface SpecialOccasion {
 const EVENT_CONFIG: Record<string, { color: string; bg: string; border: string; dot: string; icon: string }> = {
   start:     { color: "text-green-300",  bg: "bg-green-900/20",  border: "border-green-500/30",  dot: "bg-green-400",   icon: "💚" },
   break:     { color: "text-red-300",    bg: "bg-red-900/20",    border: "border-red-500/30",    dot: "bg-red-400",     icon: "💔" },
-  reunion:   { color: "text-purple-300", bg: "bg-purple-900/20", border: "border-purple-500/30", dot: "bg-purple-400",  icon: "💜" },
+  reunion:   { color: "text-rose-300",   bg: "bg-rose-900/20",   border: "border-rose-500/30",   dot: "bg-rose-400",    icon: "💗" },
   milestone: { color: "text-yellow-300", bg: "bg-yellow-900/20", border: "border-yellow-500/30", dot: "bg-yellow-400",  icon: "⭐" },
 };
 
@@ -116,7 +116,7 @@ function Timeline({ events }: { events: TimelineEvent[] }) {
                     </span>
                   )}
                   {isLast && event.type !== "break" && (
-                    <span className="text-xs bg-purple-900/40 text-purple-300 px-2 py-0.5 rounded-full whitespace-nowrap">
+                    <span className="text-xs bg-rose-900/40 text-rose-300 px-2 py-0.5 rounded-full whitespace-nowrap">
                       {daysBetween(event.date, today)}d ago
                     </span>
                   )}
@@ -260,7 +260,7 @@ export default function Dashboard() {
 
   if (status === "loading" || status === "unauthenticated") {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-[#0a0305] flex items-center justify-center">
         <div className="text-white/40 animate-pulse">Loading...</div>
       </div>
     );
@@ -270,16 +270,16 @@ export default function Dashboard() {
   const doneItems = bucketItems.filter((i) => i.completed);
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[#0a0305] text-white">
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-black/80 backdrop-blur border-b border-white/10 px-5 py-4 flex items-center justify-between">
+      <header className="sticky top-0 z-20 bg-[#0a0305]/80 backdrop-blur border-b border-white/10 px-5 py-4 flex items-center justify-between">
         <div>
           <h1 className="font-bold text-lg">leen-a-po 🌌</h1>
           <p className="text-white/40 text-xs">Hey {session?.user?.name} 👋</p>
         </div>
         <div className="flex items-center gap-3">
           {session?.user?.role === "admin" && (
-            <Link href="/admin" className="text-purple-400 text-xs font-medium hover:text-purple-300">
+            <Link href="/admin" className="text-rose-400 text-xs font-medium hover:text-rose-300">
               Admin
             </Link>
           )}
@@ -305,7 +305,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-semibold text-sm">Our Story 💫</h2>
               {session?.user?.role === "admin" && (
-                <Link href="/admin" className="text-purple-400 text-xs hover:text-purple-300">
+                <Link href="/admin" className="text-rose-400 text-xs hover:text-rose-300">
                   + Add event
                 </Link>
               )}
@@ -323,7 +323,7 @@ export default function Dashboard() {
                   onClick={() => setSelectedMood(m.emoji + " " + m.label)}
                   className={`flex flex-col items-center gap-1 py-2 px-1 rounded-xl text-xs transition-all ${
                     selectedMood === m.emoji + " " + m.label
-                      ? "bg-purple-600/40 border border-purple-500"
+                      ? "bg-rose-800/40 border border-rose-600"
                       : "bg-white/5 border border-white/10 hover:bg-white/10"
                   }`}
                 >
@@ -337,12 +337,12 @@ export default function Dashboard() {
               value={moodNote}
               onChange={(e) => setMoodNote(e.target.value)}
               placeholder="Add a note... (optional)"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-purple-500 mb-3"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-rose-500 mb-3"
             />
             <button
               onClick={logMood}
               disabled={!selectedMood || loadingMood}
-              className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-sm font-semibold transition-colors"
+              className="w-full py-2.5 rounded-xl bg-rose-700 hover:bg-rose-600 disabled:opacity-40 text-sm font-semibold transition-colors"
             >
               {loadingMood ? "Logging..." : "Log Mood ✨"}
             </button>
@@ -379,12 +379,12 @@ export default function Dashboard() {
               onChange={(e) => setNewBucketItem(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addBucketItem()}
               placeholder="Add something to do together..."
-              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-purple-500"
+              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-rose-500"
             />
             <button
               onClick={addBucketItem}
               disabled={loadingBucket}
-              className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-sm font-bold transition-colors"
+              className="px-4 py-2 rounded-xl bg-rose-700 hover:bg-rose-600 disabled:opacity-40 text-sm font-bold transition-colors"
             >
               +
             </button>
@@ -395,7 +395,7 @@ export default function Dashboard() {
                 <div key={item.id} className="flex items-center gap-3 group">
                   <button
                     onClick={() => toggleBucketItem(item.id, item.completed)}
-                    className="w-5 h-5 rounded-full border-2 border-white/30 hover:border-purple-400 flex-shrink-0 transition-colors"
+                    className="w-5 h-5 rounded-full border-2 border-white/30 hover:border-rose-400 flex-shrink-0 transition-colors"
                   />
                   <span className="flex-1 text-sm text-white/80">{item.title}</span>
                   <button onClick={() => deleteBucketItem(item.id)} className="opacity-0 group-hover:opacity-100 text-white/30 hover:text-red-400 text-xs transition-all">✕</button>
@@ -411,7 +411,7 @@ export default function Dashboard() {
                   <div key={item.id} className="flex items-center gap-3 group">
                     <button
                       onClick={() => toggleBucketItem(item.id, item.completed)}
-                      className="w-5 h-5 rounded-full bg-purple-600 border-2 border-purple-600 flex-shrink-0 flex items-center justify-center text-white text-xs"
+                      className="w-5 h-5 rounded-full bg-rose-700 border-2 border-rose-700 flex-shrink-0 flex items-center justify-center text-white text-xs"
                     >✓</button>
                     <span className="flex-1 text-sm text-white/30 line-through">{item.title}</span>
                     <button onClick={() => deleteBucketItem(item.id)} className="opacity-0 group-hover:opacity-100 text-white/30 hover:text-red-400 text-xs transition-all">✕</button>
@@ -431,7 +431,7 @@ export default function Dashboard() {
             <h2 className="font-semibold text-sm">Special Occasions 🗓️✨</h2>
             <button
               onClick={() => setShowOccForm((v) => !v)}
-              className="text-purple-400 text-xs hover:text-purple-300 font-medium transition-colors"
+              className="text-rose-400 text-xs hover:text-rose-300 font-medium transition-colors"
             >
               {showOccForm ? "Cancel" : "+ Add"}
             </button>
@@ -446,7 +446,7 @@ export default function Dashboard() {
                   value={occTitle}
                   onChange={(e) => setOccTitle(e.target.value)}
                   placeholder="Occasion title..."
-                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-purple-500"
+                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-rose-500"
                 />
                 <input
                   type="text"
@@ -454,26 +454,26 @@ export default function Dashboard() {
                   onChange={(e) => setOccEmoji(e.target.value)}
                   maxLength={2}
                   placeholder="🎉"
-                  className="w-14 text-center bg-white/5 border border-white/10 rounded-xl px-2 py-2 text-lg focus:outline-none focus:border-purple-500"
+                  className="w-14 text-center bg-white/5 border border-white/10 rounded-xl px-2 py-2 text-lg focus:outline-none focus:border-rose-500"
                 />
               </div>
               <input
                 type="date"
                 value={occDate}
                 onChange={(e) => setOccDate(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
               />
               <input
                 type="text"
                 value={occNote}
                 onChange={(e) => setOccNote(e.target.value)}
                 placeholder="Note... (optional)"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-purple-500"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-rose-500"
               />
               <button
                 onClick={addOccasion}
                 disabled={!occTitle.trim() || !occDate || loadingOcc}
-                className="w-full py-2 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-sm font-semibold transition-colors"
+                className="w-full py-2 rounded-xl bg-rose-700 hover:bg-rose-600 disabled:opacity-40 text-sm font-semibold transition-colors"
               >
                 {loadingOcc ? "Saving..." : "Save Occasion ✨"}
               </button>
@@ -493,28 +493,28 @@ export default function Dashboard() {
                     isToday
                       ? "bg-yellow-900/20 border-yellow-500/30"
                       : isPast
-                      ? "bg-white/5 border-white/10 opacity-50"
+                      ? "bg-white/5 border-white/10"
                       : "bg-white/5 border-white/10"
                   }`}>
                     <span className="text-2xl mt-0.5 leading-none">{occ.emoji}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white/90 truncate">{occ.title}</p>
-                      <p className="text-xs text-white/40 mt-0.5">
+                      <p className="text-sm font-medium text-white truncate">{occ.title}</p>
+                      <p className="text-xs text-white/60 mt-0.5">
                         {new Date(occ.date + "T12:00:00Z").toLocaleDateString("en-IN", {
                           timeZone: "Asia/Kolkata", day: "numeric", month: "long", year: "numeric",
                         })}
                       </p>
-                      {occ.note && <p className="text-xs text-white/40 italic mt-0.5 truncate">"{occ.note}"</p>}
+                      {occ.note && <p className="text-xs text-white/55 italic mt-0.5 truncate">"{occ.note}"</p>}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${
                         isToday
                           ? "bg-yellow-500/20 text-yellow-300"
                           : isPast
-                          ? "bg-white/10 text-white/30"
+                          ? "bg-white/10 text-white/50"
                           : days <= 7
                           ? "bg-pink-900/40 text-pink-300"
-                          : "bg-purple-900/40 text-purple-300"
+                          : "bg-rose-900/40 text-rose-300"
                       }`}>
                         {isToday ? "Today! 🎉" : isPast ? `${Math.abs(days)}d ago` : `in ${days}d`}
                       </span>

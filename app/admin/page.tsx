@@ -141,12 +141,12 @@ export default function AdminPage() {
   }
 
   if (status === "loading") {
-    return <div className="min-h-screen bg-black flex items-center justify-center text-white/40">Loading...</div>;
+    return <div className="min-h-screen bg-[#0a0305] flex items-center justify-center text-white/40">Loading...</div>;
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="sticky top-0 z-20 bg-black/80 backdrop-blur border-b border-white/10 px-5 py-4 flex items-center justify-between">
+    <div className="min-h-screen bg-[#0a0305] text-white">
+      <header className="sticky top-0 z-20 bg-[#0a0305]/80 backdrop-blur border-b border-white/10 px-5 py-4 flex items-center justify-between">
         <h1 className="font-bold">Admin Panel 🔐</h1>
         <Link href="/dashboard" className="text-white/40 text-xs hover:text-white/60">← Dashboard</Link>
       </header>
@@ -161,17 +161,17 @@ export default function AdminPage() {
           <form onSubmit={addEvent} className="flex flex-col gap-3 mb-5">
             <select
               value={evtType} onChange={(e) => { setEvtType(e.target.value); setEvtEndDate(""); }}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-rose-500"
             >
               {Object.entries(TYPE_LABELS).map(([val, label]) => (
-                <option key={val} value={val} className="bg-black">{label}</option>
+                <option key={val} value={val} className="bg-[#0a0305]">{label}</option>
               ))}
             </select>
 
             <input
               type="text" value={evtTitle} onChange={(e) => setEvtTitle(e.target.value)}
               placeholder="Title (e.g. We started dating 💚)" required
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-purple-500"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-rose-500"
             />
 
             <div className="flex gap-2">
@@ -181,7 +181,7 @@ export default function AdminPage() {
                 </label>
                 <input
                   type="date" value={evtDate} onChange={(e) => setEvtDate(e.target.value)} required
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500 [color-scheme:dark]"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500 [color-scheme:dark]"
                 />
               </div>
               {evtType === "break" && (
@@ -189,7 +189,7 @@ export default function AdminPage() {
                   <label className="text-white/40 text-xs mb-1 block">Break ended</label>
                   <input
                     type="date" value={evtEndDate} onChange={(e) => setEvtEndDate(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500 [color-scheme:dark]"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500 [color-scheme:dark]"
                   />
                 </div>
               )}
@@ -198,7 +198,7 @@ export default function AdminPage() {
             <input
               type="text" value={evtReason} onChange={(e) => setEvtReason(e.target.value)}
               placeholder="Reason / note (optional)"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-purple-500"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-rose-500"
             />
 
             {evtError && <p className="text-red-400 text-xs">{evtError}</p>}
@@ -206,7 +206,7 @@ export default function AdminPage() {
 
             <button
               type="submit" disabled={evtLoading}
-              className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-sm font-semibold transition-colors"
+              className="w-full py-2.5 rounded-xl bg-rose-700 hover:bg-rose-600 disabled:opacity-40 text-sm font-semibold transition-colors"
             >
               {evtLoading ? "Adding..." : "Add to Timeline ✨"}
             </button>
@@ -245,30 +245,30 @@ export default function AdminPage() {
             <input
               type="text" value={name} onChange={(e) => setName(e.target.value)}
               placeholder="Name" required
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-purple-500"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-rose-500"
             />
             <input
               type="email" value={email} onChange={(e) => setEmail(e.target.value)}
               placeholder="Email" required
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-purple-500"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-rose-500"
             />
             <input
               type="password" value={password} onChange={(e) => setPassword(e.target.value)}
               placeholder="Password" required
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-purple-500"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-rose-500"
             />
             <select
               value={role} onChange={(e) => setRole(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-rose-500"
             >
-              <option value="user" className="bg-black">User</option>
-              <option value="admin" className="bg-black">Admin</option>
+              <option value="user" className="bg-[#0a0305]">User</option>
+              <option value="admin" className="bg-[#0a0305]">Admin</option>
             </select>
             {userError && <p className="text-red-400 text-xs">{userError}</p>}
             {userSuccess && <p className="text-green-400 text-xs">{userSuccess}</p>}
             <button
               type="submit" disabled={userLoading}
-              className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-sm font-semibold transition-colors"
+              className="w-full py-2.5 rounded-xl bg-rose-700 hover:bg-rose-600 disabled:opacity-40 text-sm font-semibold transition-colors"
             >
               {userLoading ? "Adding..." : "Add User ✨"}
             </button>
@@ -286,7 +286,7 @@ export default function AdminPage() {
                   <p className="text-white/40 text-xs">{u.email}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${u.role === "admin" ? "bg-purple-600/30 text-purple-300" : "bg-white/10 text-white/50"}`}>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${u.role === "admin" ? "bg-rose-800/40 text-rose-300" : "bg-white/10 text-white/50"}`}>
                     {u.role}
                   </span>
                   {u.id !== session?.user?.id && (
