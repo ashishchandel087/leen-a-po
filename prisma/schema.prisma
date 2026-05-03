@@ -33,6 +33,7 @@ model BucketItem {
   addedById   String
   completedAt DateTime?
   createdAt   DateTime  @default(now())
+  deletedAt   DateTime?
 }
 
 model Config {
@@ -51,18 +52,20 @@ model TimelineEvent {
 }
 
 model PissOffLog {
-  id        String   @id @default(cuid())
-  who       String   // "ashish" | "leena"
+  id        String    @id @default(cuid())
+  who       String    // "ashish" | "leena"
   reason    String
-  level     Int      // 1–5
-  createdAt DateTime @default(now())
+  level     Int       // 1–5
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
 }
 
 model SpecialOccasion {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   title     String
-  date      String   // YYYY-MM-DD
-  emoji     String   @default("🎉")
+  date      String    // YYYY-MM-DD
+  emoji     String    @default("🎉")
   note      String?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
 }

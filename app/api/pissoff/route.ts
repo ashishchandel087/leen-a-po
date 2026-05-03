@@ -8,6 +8,7 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const logs = await prisma.pissOffLog.findMany({
+    where: { deletedAt: null },
     orderBy: { createdAt: "desc" },
   });
   return NextResponse.json(logs);
@@ -38,6 +39,6 @@ export async function DELETE(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await req.json();
-  await prisma.pissOffLog.delete({ where: { id } });
+  await prisma.pissOffLog.update({ where: { id }, data: { deletedAt: new Date() } });
   return NextResponse.json({ success: true });
 }

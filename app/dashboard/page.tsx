@@ -398,7 +398,7 @@ export default function Dashboard() {
                     className="w-5 h-5 rounded-full border-2 border-white/30 hover:border-rose-400 flex-shrink-0 transition-colors"
                   />
                   <span className="flex-1 text-sm text-white/80">{item.title}</span>
-                  <button onClick={() => deleteBucketItem(item.id)} className="opacity-0 group-hover:opacity-100 text-white/30 hover:text-red-400 text-xs transition-all">✕</button>
+                  <button onClick={() => deleteBucketItem(item.id)} className="opacity-30 group-hover:opacity-100 text-white/50 hover:text-red-400 active:text-red-400 text-xs transition-all">✕</button>
                 </div>
               ))}
             </div>
@@ -414,7 +414,7 @@ export default function Dashboard() {
                       className="w-5 h-5 rounded-full bg-rose-700 border-2 border-rose-700 flex-shrink-0 flex items-center justify-center text-white text-xs"
                     >✓</button>
                     <span className="flex-1 text-sm text-white/30 line-through">{item.title}</span>
-                    <button onClick={() => deleteBucketItem(item.id)} className="opacity-0 group-hover:opacity-100 text-white/30 hover:text-red-400 text-xs transition-all">✕</button>
+                    <button onClick={() => deleteBucketItem(item.id)} className="opacity-30 group-hover:opacity-100 text-white/50 hover:text-red-400 active:text-red-400 text-xs transition-all">✕</button>
                   </div>
                 ))}
               </div>
@@ -520,7 +520,7 @@ export default function Dashboard() {
                       </span>
                       <button
                         onClick={() => deleteOccasion(occ.id)}
-                        className="opacity-0 group-hover:opacity-100 text-white/30 hover:text-red-400 text-xs transition-all"
+                        className="opacity-30 group-hover:opacity-100 text-white/50 hover:text-red-400 active:text-red-400 text-xs transition-all"
                       >✕</button>
                     </div>
                   </div>

@@ -8,6 +8,7 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const occasions = await prisma.specialOccasion.findMany({
+    where: { deletedAt: null },
     orderBy: { date: "asc" },
   });
   return NextResponse.json(occasions);
@@ -38,6 +39,6 @@ export async function DELETE(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await req.json();
-  await prisma.specialOccasion.delete({ where: { id } });
+  await prisma.specialOccasion.update({ where: { id }, data: { deletedAt: new Date() } });
   return NextResponse.json({ success: true });
 }

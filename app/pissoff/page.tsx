@@ -353,7 +353,7 @@ export default function PissOffPage() {
                       <p className="text-white/70 text-xs mt-0.5">{log.reason}</p>
                     </div>
                     <button onClick={() => deleteLog(log.id)}
-                      className="opacity-0 group-hover:opacity-100 text-white/30 hover:text-red-400 text-xs transition-all flex-shrink-0"
+                      className="opacity-30 group-hover:opacity-100 text-white/50 hover:text-red-400 text-xs transition-all flex-shrink-0 active:text-red-400"
                     >✕</button>
                   </div>
                 );

@@ -9,6 +9,7 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const items = await prisma.bucketItem.findMany({
+    where: { deletedAt: null },
     orderBy: [{ completed: "asc" }, { createdAt: "desc" }],
   });
   return NextResponse.json(items);
@@ -50,6 +51,6 @@ export async function DELETE(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await req.json();
-  await prisma.bucketItem.delete({ where: { id } });
+  await prisma.bucketItem.update({ where: { id }, data: { deletedAt: new Date() } });
   return NextResponse.json({ success: true });
 }
