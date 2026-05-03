@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sendPushToOthers } from "@/lib/push";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -31,6 +32,16 @@ export async function POST(req: NextRequest) {
   const log = await prisma.pissOffLog.create({
     data: { who, reason, level: Number(level), createdAt },
   });
+
+  // Notify the other person
+  const name = who === "ashish" ? "Ashish" : "Leena";
+  const lvlEmojis: Record<number, string> = { 1: "😒", 2: "😤", 3: "😠", 4: "🤬", 5: "☠️" };
+  sendPushToOthers(session.user.id, {
+    title: `${lvlEmojis[Number(level)] ?? "😤"} Piss-O-Meter Alert`,
+    body: `${name} logged a Level ${level} incident — "${reason}"`,
+    url: "/pissoff",
+  }).catch(() => {});
+
   return NextResponse.json(log);
 }
 

@@ -60,6 +60,15 @@ model PissOffLog {
   deletedAt DateTime?
 }
 
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+}
+
 model SpecialOccasion {
   id        String    @id @default(cuid())
   title     String

@@ -1,9 +1,76 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+
+/* ── Push notification helpers ── */
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+function usePush() {
+  const [supported, setSupported] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
+  const [swReg, setSwReg] = useState<ServiceWorkerRegistration | null>(null);
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    setSupported(true);
+    navigator.serviceWorker.register("/sw.js").then(async (reg) => {
+      setSwReg(reg);
+      const existing = await reg.pushManager.getSubscription();
+      setSubscribed(!!existing);
+    });
+  }, []);
+
+  const subscribe = useCallback(async () => {
+    if (!swReg) return;
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") return;
+      const sub = await swReg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!),
+      });
+      await fetch("/api/push/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(sub.toJSON()),
+      });
+      setSubscribed(true);
+    } catch {}
+  }, [swReg]);
+
+  const unsubscribe = useCallback(async () => {
+    if (!swReg) return;
+    const sub = await swReg.pushManager.getSubscription();
+    if (!sub) return;
+    await fetch("/api/push/subscribe", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ endpoint: sub.endpoint }),
+    });
+    await sub.unsubscribe();
+    setSubscribed(false);
+  }, [swReg]);
+
+  const sendPing = useCallback(async (title: string, body: string) => {
+    await fetch("/api/push/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, body, url: "/dashboard" }),
+    });
+  }, []);
+
+  return { supported, subscribed, subscribe, unsubscribe, sendPing };
+}
 
 const MOODS = [
   { emoji: "😄", label: "Happy" },
@@ -156,6 +223,11 @@ export default function Dashboard() {
   const [occNote, setOccNote] = useState("");
   const [loadingOcc, setLoadingOcc] = useState(false);
   const [showOccForm, setShowOccForm] = useState(false);
+  // Push notifications
+  const { supported, subscribed, subscribe, unsubscribe, sendPing } = usePush();
+  const [pingMsg, setPingMsg] = useState("");
+  const [pingSending, setPingSending] = useState(false);
+  const [pingSent, setPingSent] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login");
@@ -282,6 +354,15 @@ export default function Dashboard() {
             <Link href="/admin" className="text-rose-400 text-xs font-medium hover:text-rose-300">
               Admin
             </Link>
+          )}
+          {supported && (
+            <button
+              onClick={subscribed ? unsubscribe : subscribe}
+              title={subscribed ? "Disable notifications" : "Enable notifications"}
+              className="text-lg leading-none transition-opacity hover:opacity-70"
+            >
+              {subscribed ? "🔔" : "🔕"}
+            </button>
           )}
           <Link href="/about" className="text-white/40 text-xs hover:text-white/60">About Us</Link>
           <Link href="/pissoff" className="text-orange-400 text-xs hover:text-orange-300">😤 Meter</Link>
@@ -529,6 +610,54 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+
+        {/* Ping your partner */}
+        {supported && subscribed && (
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+            <h2 className="font-semibold text-sm mb-1">Ping 🔔</h2>
+            <p className="text-white/40 text-xs mb-4">Send a notification to your partner</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={pingMsg}
+                onChange={(e) => { setPingMsg(e.target.value); setPingSent(false); }}
+                onKeyDown={async (e) => {
+                  if (e.key === "Enter" && pingMsg.trim()) {
+                    setPingSending(true);
+                    await sendPing(`💌 ${session?.user?.name}`, pingMsg.trim());
+                    setPingMsg(""); setPingSent(true); setPingSending(false);
+                  }
+                }}
+                placeholder="Say something sweet..."
+                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-rose-500"
+              />
+              <button
+                onClick={async () => {
+                  if (!pingMsg.trim()) return;
+                  setPingSending(true);
+                  await sendPing(`💌 ${session?.user?.name}`, pingMsg.trim());
+                  setPingMsg(""); setPingSent(true); setPingSending(false);
+                }}
+                disabled={!pingMsg.trim() || pingSending}
+                className="px-4 py-2 rounded-xl bg-rose-700 hover:bg-rose-600 disabled:opacity-40 text-sm font-bold transition-colors"
+              >
+                {pingSending ? "..." : "Send"}
+              </button>
+            </div>
+            {pingSent && (
+              <p className="text-rose-300 text-xs mt-2">Ping sent! 💌</p>
+            )}
+          </div>
+        )}
+
+        {supported && !subscribed && (
+          <button
+            onClick={subscribe}
+            className="w-full py-3 rounded-2xl bg-white/5 border border-white/10 hover:border-rose-500/40 text-white/50 hover:text-white text-sm transition-all"
+          >
+            🔕 Enable notifications to ping each other
+          </button>
+        )}
 
       </div>
     </div>

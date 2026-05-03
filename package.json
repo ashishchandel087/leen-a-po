@@ -16,6 +16,7 @@
     "@prisma/client": "^5.22.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/three": "^0.184.0",
+    "@types/web-push": "^3.6.4",
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.4.2",
     "next": "16.2.4",
@@ -23,7 +24,8 @@
     "prisma": "^5.22.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "three": "^0.184.0"
+    "three": "^0.184.0",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
