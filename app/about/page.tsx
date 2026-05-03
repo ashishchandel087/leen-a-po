@@ -35,8 +35,8 @@ const ASHISH: Person = {
   emoji: "🦀",
   element: "Water",
   elementEmoji: "💧",
-  ruling: "Moon",
-  rulingEmoji: "🌙",
+  ruling: "Mars",
+  rulingEmoji: "🔴",
   modality: "Cardinal",
   moonSign: "Leo",
   moonEmoji: "🦁",
@@ -57,8 +57,8 @@ const LEENA: Person = {
   emoji: "🦂",
   element: "Water",
   elementEmoji: "💧",
-  ruling: "Pluto & Mars",
-  rulingEmoji: "♇",
+  ruling: "Neptune",
+  rulingEmoji: "🔵",
   modality: "Fixed",
   moonSign: "Taurus",
   moonEmoji: "🐂",
@@ -77,6 +77,102 @@ const COMPAT = [
   { icon: "🔒", label: "Fierce loyalty", desc: "Neither of you loves halfway. When you're in, you're all in — and you both know it." },
   { icon: "🌙", label: "Moon connection", desc: "Cancer is ruled by the Moon — emotion, cycles, home. Scorpio feels everything the Moon brings." },
 ];
+
+/* ── Mini rotating planet for cards ── */
+function MiniPlanetCanvas({
+  fallbackColor,
+  textureUrls,
+  ambientColor,
+  sunColor,
+  sunIntensity,
+  rotateSpeed,
+}: {
+  fallbackColor: number;
+  textureUrls: string[];
+  ambientColor: number;
+  sunColor: number;
+  sunIntensity: number;
+  rotateSpeed: number;
+}) {
+  const mountRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const mount = mountRef.current;
+    if (!mount) return;
+
+    let animId: number;
+    let rendererRef: import("three").WebGLRenderer | null = null;
+    let alive = true;
+
+    (async () => {
+      const THREE = await import("three");
+      if (!alive || !mount) return;
+
+      const scene = new THREE.Scene();
+
+      const W = mount.clientWidth  || 200;
+      const H = mount.clientHeight || 200;
+      const camera = new THREE.PerspectiveCamera(40, W / H, 0.1, 100);
+      camera.position.z = 2.4;
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      rendererRef = renderer;
+      renderer.setSize(W, H);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setClearColor(0x000000, 0);   // transparent bg — card colour shows through
+      mount.appendChild(renderer.domElement);
+
+      const mat = new THREE.MeshPhongMaterial({ color: fallbackColor, shininess: 6 });
+
+      const loader = new THREE.TextureLoader();
+      loader.setCrossOrigin("anonymous");
+      function tryLoad(urls: string[]) {
+        if (!urls.length) return;
+        loader.load(urls[0], (tex) => {
+          mat.map = tex; mat.color.set(0xffffff); mat.needsUpdate = true;
+        }, undefined, () => tryLoad(urls.slice(1)));
+      }
+      tryLoad(textureUrls);
+
+      const sphere = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 48), mat);
+      scene.add(sphere);
+
+      scene.add(new THREE.AmbientLight(ambientColor, 2.5));
+      const sun = new THREE.DirectionalLight(sunColor, sunIntensity);
+      sun.position.set(3, 1, 2);
+      scene.add(sun);
+
+      function onResize() {
+        if (!mount) return;
+        const w = mount.clientWidth, h = mount.clientHeight;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+      }
+      window.addEventListener("resize", onResize);
+
+      function animate() {
+        if (!alive) return;
+        animId = requestAnimationFrame(animate);
+        sphere.rotation.y += rotateSpeed;
+        renderer.render(scene, camera);
+      }
+      animate();
+    })();
+
+    return () => {
+      alive = false;
+      cancelAnimationFrame(animId);
+      if (rendererRef && mount.contains(rendererRef.domElement)) {
+        mount.removeChild(rendererRef.domElement);
+        rendererRef.dispose();
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return <div ref={mountRef} className="w-full h-full absolute inset-0" />;
+}
 
 /* ── Moon meeting animation (horizontal) ── */
 function MoonMeetCanvas() {
@@ -293,6 +389,67 @@ export default function AboutPage() {
             <p className="text-white/60 text-sm mt-1">Finding each other 🌙</p>
           </div>
           <MoonMeetCanvas />
+        </div>
+
+        {/* ── Planet Explorer ── */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+          <p className="text-xs text-white/30 uppercase tracking-widest mb-1 text-center">Ruling Planet</p>
+          <p className="text-white/50 text-sm text-center mb-5">Click a planet to explore 🚀</p>
+          <div className="grid grid-cols-2 gap-3">
+
+            {/* Mars card */}
+            <Link href="/mars" className="group block">
+              <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden transition-all duration-200 group-hover:border-rose-500/40 group-hover:bg-white/8 group-active:scale-95">
+                <div className="h-36 relative pointer-events-none">
+                  <MiniPlanetCanvas
+                    fallbackColor={0xc1440e}
+                    textureUrls={[
+                      "https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/mars_1k_color.jpg",
+                      "https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/OSIRIS_Mars_true_color.jpg/1024px-OSIRIS_Mars_true_color.jpg",
+                    ]}
+                    ambientColor={0x1a0505}
+                    sunColor={0xffe8d0}
+                    sunIntensity={3.5}
+                    rotateSpeed={0.006}
+                  />
+                </div>
+                <div className="px-4 py-3 border-t border-white/5">
+                  <p className="font-semibold text-sm text-white">Ashish</p>
+                  <p className="text-white/40 text-xs mt-0.5">Mars 🔴 · The Red Planet</p>
+                  <p className="text-rose-400 text-xs mt-2 group-hover:text-rose-300 transition-colors">
+                    Explore →
+                  </p>
+                </div>
+              </div>
+            </Link>
+
+            {/* Neptune card */}
+            <Link href="/neptune" className="group block">
+              <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden transition-all duration-200 group-hover:border-blue-500/40 group-hover:bg-white/8 group-active:scale-95">
+                <div className="h-36 relative pointer-events-none">
+                  <MiniPlanetCanvas
+                    fallbackColor={0x1a6dcc}
+                    textureUrls={[
+                      "https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/neptune_1k_color.jpg",
+                      "https://upload.wikimedia.org/wikipedia/commons/5/56/Neptune_Full.jpg",
+                    ]}
+                    ambientColor={0x050a1a}
+                    sunColor={0xc0d8ff}
+                    sunIntensity={1.8}
+                    rotateSpeed={0.008}
+                  />
+                </div>
+                <div className="px-4 py-3 border-t border-white/5">
+                  <p className="font-semibold text-sm text-white">Leena</p>
+                  <p className="text-white/40 text-xs mt-0.5">Neptune 🔵 · The Ice Giant</p>
+                  <p className="text-blue-400 text-xs mt-2 group-hover:text-blue-300 transition-colors">
+                    Explore →
+                  </p>
+                </div>
+              </div>
+            </Link>
+
+          </div>
         </div>
 
         {/* Profile cards */}
