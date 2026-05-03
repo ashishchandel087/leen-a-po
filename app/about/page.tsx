@@ -88,9 +88,12 @@ function MoonMeetCanvas() {
     const wrap   = wrapRef.current;
     if (!canvas || !wrap) return;
 
-    const imgSize = 180;
-    const CH = imgSize + 60; // a bit of room above/below for the date labels
-    const CW = Math.max(wrap.clientWidth, imgSize * 2 + 40);
+    // Scale moon size to fit — max 180px but shrink on narrow screens
+    // Each moon takes ~half the width, keep padding on both sides
+    const CW = wrap.clientWidth || 300;
+    const imgSize = Math.min(180, Math.floor(CW * 0.38));
+    const labelPad = 36; // space above for name + below for date
+    const CH = imgSize + labelPad * 2;
 
     canvas.width  = CW;
     canvas.height = CH;
@@ -117,22 +120,23 @@ function MoonMeetCanvas() {
     let alive = true;
     let played = false;
 
-    const threshold = CW / 2 - imgSize / 2;
+    // Stop when both moons are fully on screen, side by side at center
+    const threshold = Math.floor(CW / 2);
 
     function drawStill() {
       // draw moons at resting (met) position
       ctx.clearRect(0, 0, CW, CH);
-      ctx.fillStyle = "white";
+      const nameFontSize = Math.max(11, Math.floor(imgSize * 0.1));
+      const dateFontSize = Math.max(10, Math.floor(imgSize * 0.085));
       ctx.textAlign = "center";
-      ctx.font = "bold 15px Arial";
       for (const item of items) {
         ctx.drawImage(item.img, item.x, item.y, item.width, item.height);
-        ctx.fillText(item.name, item.x + imgSize / 2, item.y - 20);
-        ctx.font = "13px Arial";
+        ctx.font = `bold ${nameFontSize}px Arial`;
+        ctx.fillStyle = "white";
+        ctx.fillText(item.name, item.x + imgSize / 2, item.y - 10);
+        ctx.font = `${dateFontSize}px Arial`;
         ctx.fillStyle = "rgba(255,255,255,0.5)";
         ctx.fillText(item.text, item.x + imgSize / 2, item.y + imgSize + 18);
-        ctx.font = "bold 15px Arial";
-        ctx.fillStyle = "white";
       }
     }
 
