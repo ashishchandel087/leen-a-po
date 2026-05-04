@@ -145,12 +145,25 @@ export default function Home() {
       <div className="relative z-10 mx-4 mt-3 rounded-2xl overflow-hidden shadow-2xl shadow-rose-900/30 border border-white/5">
         {data.media_type === "video" ? (
           <div className="aspect-video w-full">
-            <iframe
-              src={data.url}
-              className="w-full h-full"
-              allowFullScreen
-              title={data.title}
-            />
+            {/\.(mp4|webm|ogg)(\?.*)?$/i.test(data.url) ? (
+              <video
+                src={data.url}
+                className="w-full h-full object-cover"
+                controls
+                autoPlay
+                muted
+                loop
+                playsInline
+                title={data.title}
+              />
+            ) : (
+              <iframe
+                src={data.url}
+                className="w-full h-full"
+                allowFullScreen
+                title={data.title}
+              />
+            )}
           </div>
         ) : (
           <div className="relative w-full">
