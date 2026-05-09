@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import Link from "next/link";
+import AppHeader from "../components/AppHeader";
 
 const MARS_FACTS = [
   { label: "Distance from Sun", value: "227.9M km" },
@@ -194,25 +194,19 @@ export default function MarsPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0305] text-white flex flex-col">
-      <header className="sticky top-0 z-20 bg-[#0a0305]/80 backdrop-blur border-b border-white/10 px-5 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="font-bold">Mars 🔴</h1>
-          <p className="text-white/40 text-xs">The Red Planet · drag &amp; scroll to explore</p>
-        </div>
-        <Link href="/dashboard" className="text-white/40 text-xs hover:text-white/60">← Dashboard</Link>
-      </header>
+      <AppHeader variant="page" title="Mars 🔴" subtitle="The Red Planet · drag & scroll to explore" backHref="/about" />
 
       <div ref={mountRef} className="w-full" style={{ height: "60vh", minHeight: 320 }} />
 
       <div className="max-w-lg mx-auto w-full px-4 pb-10 pt-2 flex flex-col gap-4">
 
         {/* Planet facts */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-          <p className="text-xs text-white/30 uppercase tracking-widest mb-4 text-center">Mars at a Glance</p>
-          <div className="grid grid-cols-2 gap-2">
+        <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-5 backdrop-blur-sm shadow-xl shadow-black/30 animate-fade-up">
+          <p className="text-xs text-rose-300/80 uppercase tracking-[0.25em] mb-4 text-center">Mars at a Glance</p>
+          <div className="grid grid-cols-2 gap-2 stagger">
             {MARS_FACTS.map((f) => (
-              <div key={f.label} className="bg-white/5 rounded-xl px-3 py-2.5">
-                <p className="text-white/40 text-xs">{f.label}</p>
+              <div key={f.label} className="animate-fade-up bg-white/[0.05] hover:bg-white/[0.08] border border-white/10 rounded-xl px-3 py-2.5 transition-colors">
+                <p className="text-white/65 text-xs">{f.label}</p>
                 <p className="text-white text-sm font-medium mt-0.5">{f.value}</p>
               </div>
             ))}
@@ -220,36 +214,36 @@ export default function MarsPage() {
         </div>
 
         {/* Moons */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-          <p className="text-xs text-white/30 uppercase tracking-widest mb-4 text-center">Moons of Mars 🌑</p>
-          <div className="flex flex-col gap-3">
+        <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-5 backdrop-blur-sm shadow-xl shadow-black/30 animate-fade-up">
+          <p className="text-xs text-rose-300/80 uppercase tracking-[0.25em] mb-4 text-center">Moons of Mars 🌑</p>
+          <div className="flex flex-col gap-3 stagger">
             {MARS_MOONS.map((m) => (
-              <div key={m.name} className="bg-white/5 rounded-xl px-4 py-3">
+              <div key={m.name} className="animate-fade-up bg-white/[0.05] hover:bg-white/[0.08] border border-white/10 rounded-xl px-4 py-3 transition-colors">
                 <div className="flex items-center gap-2 mb-2">
                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${m.dot}`} />
                   <p className={`font-semibold text-sm ${m.color}`}>{m.name}</p>
                 </div>
                 <div className="grid grid-cols-3 gap-1.5 mb-2">
                   <div>
-                    <p className="text-white/30 text-xs">Orbit</p>
-                    <p className="text-white/80 text-xs font-medium">{m.orbit}</p>
+                    <p className="text-white/55 text-xs">Orbit</p>
+                    <p className="text-white/90 text-xs font-medium">{m.orbit}</p>
                   </div>
                   <div>
-                    <p className="text-white/30 text-xs">Period</p>
-                    <p className="text-white/80 text-xs font-medium">{m.period}</p>
+                    <p className="text-white/55 text-xs">Period</p>
+                    <p className="text-white/90 text-xs font-medium">{m.period}</p>
                   </div>
                   <div>
-                    <p className="text-white/30 text-xs">Diameter</p>
-                    <p className="text-white/80 text-xs font-medium">{m.diameter}</p>
+                    <p className="text-white/55 text-xs">Diameter</p>
+                    <p className="text-white/90 text-xs font-medium">{m.diameter}</p>
                   </div>
                 </div>
-                <p className="text-white/40 text-xs italic">{m.note}</p>
+                <p className="text-white/65 text-xs italic">{m.note}</p>
               </div>
             ))}
           </div>
         </div>
 
-        <p className="text-white/20 text-xs text-center pb-2">Data: NASA Mars Exploration Program</p>
+        <p className="text-white/45 text-xs text-center pb-2">Data: NASA Mars Exploration Program</p>
       </div>
     </div>
   );

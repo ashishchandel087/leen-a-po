@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import AppHeader from "../components/AppHeader";
+import LoadingScreen from "../components/LoadingScreen";
+import { useToast } from "../components/Toast";
+import { Trash, Flame } from "../components/Icons";
 
 interface PissOffLog {
   id: string;
@@ -103,10 +106,10 @@ function BarChart({ logs }: { logs: PissOffLog[] }) {
                 </text>
               )}
               {/* Level label */}
-              <text x={x + groupW / 2} y={chartH + 16} textAnchor="middle" fontSize="11" fill="rgba(255,255,255,0.4)">
+              <text x={x + groupW / 2} y={chartH + 16} textAnchor="middle" fontSize="11" fill="rgba(255,255,255,0.65)">
                 {li.emoji}
               </text>
-              <text x={x + groupW / 2} y={chartH + 26} textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.25)">
+              <text x={x + groupW / 2} y={chartH + 26} textAnchor="middle" fontSize="8" fill="rgba(255,255,255,0.5)">
                 Lvl {lvl}
               </text>
             </g>
@@ -119,7 +122,7 @@ function BarChart({ logs }: { logs: PissOffLog[] }) {
         {Object.entries(WHO_CONFIG).map(([, cfg]) => (
           <div key={cfg.label} className="flex items-center gap-1.5">
             <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: cfg.bar }} />
-            <span className="text-white/40 text-xs">{cfg.label}</span>
+            <span className="text-white/65 text-xs">{cfg.label}</span>
           </div>
         ))}
       </div>
@@ -130,6 +133,7 @@ function BarChart({ logs }: { logs: PissOffLog[] }) {
 export default function PissOffPage() {
   const { status } = useSession();
   const router = useRouter();
+  const toast = useToast();
 
   const [logs, setLogs]       = useState<PissOffLog[]>([]);
   const [who, setWho]         = useState<"ashish" | "leena">("ashish");
@@ -167,8 +171,10 @@ export default function PissOffPage() {
       setReason("");
       setLevel(1);
       setDate(todayLocal());
+      toast.show("Incident logged 🚨", "success");
     } else {
       setError(data.error ?? "Something went wrong");
+      toast.show("Couldn't log incident", "error");
     }
     setLoading(false);
   }
@@ -183,7 +189,7 @@ export default function PissOffPage() {
   }
 
   if (status === "loading") {
-    return <div className="min-h-screen bg-[#0a0305] flex items-center justify-center text-white/40 animate-pulse">Loading...</div>;
+    return <LoadingScreen message="Calibrating the meter" />;
   }
 
   // ── Stats ──
@@ -204,54 +210,50 @@ export default function PissOffPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0a0305] text-white">
-      <header className="sticky top-0 z-20 bg-[#0a0305]/80 backdrop-blur border-b border-white/10 px-5 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="font-bold">Piss-O-Meter 😤</h1>
-          <p className="text-white/40 text-xs">Who&apos;s the bigger menace?</p>
-        </div>
-        <Link href="/dashboard" className="text-white/40 text-xs hover:text-white/60">← Dashboard</Link>
-      </header>
+    <div className="min-h-screen bg-[#0a0305] text-white relative">
+      <div className="aurora" aria-hidden />
 
-      <div className="max-w-lg mx-auto px-4 py-6 flex flex-col gap-5">
+      <AppHeader variant="page" title="Piss-O-Meter 😤" subtitle="Who's the bigger menace?" />
+
+      <div className="relative max-w-lg mx-auto px-4 py-6 flex flex-col gap-5">
 
         {/* ── Score card ── */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-          <p className="text-xs text-white/30 uppercase tracking-widest mb-4 text-center">Total Piss Score</p>
+        <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-5 backdrop-blur-sm shadow-xl shadow-black/30 animate-fade-up">
+          <p className="text-xs text-rose-300/80 uppercase tracking-[0.25em] mb-4 text-center">Total Piss Score</p>
           <div className="flex items-center justify-between mb-3">
             <div className="text-center">
-              <p className="text-pink-300 font-bold text-2xl">{ashishTotal}</p>
-              <p className="text-white/50 text-xs">Ashish</p>
+              <p className="text-pink-300 font-bold text-3xl">{ashishTotal}</p>
+              <p className="text-white/65 text-xs mt-0.5">Ashish</p>
             </div>
-            <p className="text-white/20 text-xs">pts</p>
+            <p className="text-white/40 text-xs">pts</p>
             <div className="text-center">
-              <p className="text-rose-300 font-bold text-2xl">{leenaTotal}</p>
-              <p className="text-white/50 text-xs">Leena</p>
+              <p className="text-rose-300 font-bold text-3xl">{leenaTotal}</p>
+              <p className="text-white/65 text-xs mt-0.5">Leena</p>
             </div>
           </div>
-          <div className="h-3 bg-white/10 rounded-full overflow-hidden flex">
-            <div className="bg-pink-400 transition-all duration-700" style={{ width: `${ashishPct}%` }} />
-            <div className="bg-rose-700 transition-all duration-700" style={{ width: `${leenaPct}%` }} />
+          <div className="h-3 bg-white/10 rounded-full overflow-hidden flex shadow-inner">
+            <div className="bg-gradient-to-r from-pink-300 to-pink-400 transition-all duration-700" style={{ width: `${ashishPct}%` }} />
+            <div className="bg-gradient-to-r from-rose-600 to-rose-800 transition-all duration-700" style={{ width: `${leenaPct}%` }} />
           </div>
-          <div className="flex justify-between mt-1">
-            <span className="text-pink-400 text-xs">{ashishPct}%</span>
-            <span className="text-rose-400 text-xs">{leenaPct}%</span>
+          <div className="flex justify-between mt-1.5">
+            <span className="text-pink-300 text-xs font-medium">{ashishPct}%</span>
+            <span className="text-rose-300 text-xs font-medium">{leenaPct}%</span>
           </div>
           <div className="grid grid-cols-2 gap-2 mt-4">
-            <div className="bg-white/5 rounded-xl px-3 py-2 text-center">
-              <p className="text-white/40 text-xs mb-0.5">☮️ Peace streak</p>
+            <div className="bg-white/[0.04] border border-white/10 rounded-xl px-3 py-2.5 text-center transition-colors hover:bg-white/[0.07]">
+              <p className="text-white/60 text-xs mb-1">☮️ Peace streak</p>
               <p className="text-white font-semibold text-sm">
                 {peaceDays === null ? "No logs yet" : peaceDays === 0 ? "Today 😬" : `${peaceDays}d`}
               </p>
             </div>
-            <div className="bg-white/5 rounded-xl px-3 py-2 text-center">
-              <p className="text-white/40 text-xs mb-0.5">🔥 Worst offense</p>
+            <div className="bg-white/[0.04] border border-white/10 rounded-xl px-3 py-2.5 text-center transition-colors hover:bg-white/[0.07]">
+              <p className="text-white/60 text-xs mb-1">🔥 Worst offense</p>
               {topLog ? (
                 <p className="text-white font-semibold text-sm">
                   {levelInfo(topLog.level).emoji} Lvl {topLog.level} · {WHO_CONFIG[topLog.who as keyof typeof WHO_CONFIG]?.label}
                 </p>
               ) : (
-                <p className="text-white/30 text-sm">None yet</p>
+                <p className="text-white/55 text-sm">None yet</p>
               )}
             </div>
           </div>
@@ -259,113 +261,153 @@ export default function PissOffPage() {
 
         {/* ── Bar chart ── */}
         {logs.length > 0 && (
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+          <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-5 backdrop-blur-sm shadow-xl shadow-black/30 animate-fade-up">
             <p className="text-sm font-semibold mb-4">Incidents by Level 📊</p>
             <BarChart logs={logs} />
           </div>
         )}
 
         {/* ── Log form ── */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-          <h2 className="font-semibold text-sm mb-4">Log an Incident 🚨</h2>
+        <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-5 backdrop-blur-sm shadow-xl shadow-black/30 animate-fade-up">
+          <h2 className="font-semibold text-sm mb-4 flex items-center gap-2">
+            <Flame className="w-4 h-4 text-orange-400" aria-hidden />
+            Log an Incident
+          </h2>
           <form onSubmit={submit} className="flex flex-col gap-3">
 
             {/* Who */}
-            <div className="grid grid-cols-2 gap-2">
-              {(["ashish", "leena"] as const).map(w => {
-                const cfg = WHO_CONFIG[w];
-                return (
-                  <button key={w} type="button" onClick={() => setWho(w)}
-                    className={`py-2.5 rounded-xl text-sm font-semibold border transition-all ${
-                      who === w ? `${cfg.color} ${cfg.border} text-white` : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10"
-                    }`}
-                  >
-                    {cfg.label} 😤
-                  </button>
-                );
-              })}
-            </div>
+            <fieldset>
+              <legend className="sr-only">Who?</legend>
+              <div className="grid grid-cols-2 gap-2">
+                {(["ashish", "leena"] as const).map(w => {
+                  const cfg = WHO_CONFIG[w];
+                  const active = who === w;
+                  return (
+                    <button key={w} type="button" onClick={() => setWho(w)} aria-pressed={active}
+                      className={`py-3 min-h-[44px] rounded-xl text-sm font-semibold border transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 ${
+                        active
+                          ? `${cfg.color} ${cfg.border} text-white shadow-lg`
+                          : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20"
+                      }`}
+                    >
+                      {cfg.label} 😤
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
 
             {/* Level */}
-            <div className="grid grid-cols-5 gap-1.5">
-              {LEVELS.map(li => (
-                <button key={li.level} type="button" onClick={() => setLevel(li.level)}
-                  className={`flex flex-col items-center gap-1 py-2 rounded-xl border text-xs transition-all ${
-                    level === li.level ? "bg-orange-600/40 border-orange-500 text-white" : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10"
-                  }`}
-                >
-                  <span className="text-lg">{li.emoji}</span>
-                  <span>{li.level}</span>
-                </button>
-              ))}
-            </div>
-            <p className="text-white/40 text-xs text-center -mt-1">
+            <fieldset>
+              <legend className="sr-only">Anger level</legend>
+              <div className="grid grid-cols-5 gap-1.5">
+                {LEVELS.map(li => {
+                  const active = level === li.level;
+                  return (
+                    <button key={li.level} type="button" onClick={() => setLevel(li.level)} aria-pressed={active} aria-label={`Level ${li.level}: ${li.label}`}
+                      className={`flex flex-col items-center gap-1 py-2.5 min-h-[56px] rounded-xl border text-xs transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 ${
+                        active
+                          ? "bg-gradient-to-b from-orange-500/40 to-orange-700/40 border-orange-400 text-white scale-[1.04] shadow-lg shadow-orange-700/30"
+                          : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10"
+                      }`}
+                    >
+                      <span className="text-lg">{li.emoji}</span>
+                      <span>{li.level}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
+            <p className="text-white/65 text-xs text-center -mt-1">
               {levelInfo(level).emoji} {levelInfo(level).label}
             </p>
 
             {/* Reason */}
+            <label htmlFor="po-reason" className="sr-only">Reason</label>
             <input
+              id="po-reason"
               type="text" value={reason} onChange={e => setReason(e.target.value)}
               placeholder="What did they do? 👀" required
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-orange-500"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/50 focus:outline-none focus:border-orange-400 focus:bg-white/[0.07] transition-colors"
             />
 
             {/* Date */}
             <div>
-              <label className="text-white/40 text-xs mb-1 block">Date of incident</label>
+              <label htmlFor="po-date" className="text-white/70 text-xs mb-1 block font-medium">Date of incident</label>
               <input
+                id="po-date"
                 type="date" value={date} onChange={e => setDate(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-orange-500 [color-scheme:dark]"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-orange-400"
               />
             </div>
 
-            {error && <p className="text-red-400 text-xs">{error}</p>}
+            {error && (
+              <p role="alert" className="text-red-300 text-xs bg-red-500/10 border border-red-400/20 rounded-lg px-3 py-2">
+                {error}
+              </p>
+            )}
 
             <button type="submit" disabled={loading}
-              className="w-full py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 disabled:opacity-40 text-sm font-semibold transition-colors"
+              className="w-full py-3 min-h-[44px] rounded-xl bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-semibold transition-all cursor-pointer shadow-lg shadow-orange-700/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 flex items-center justify-center gap-2"
             >
-              {loading ? "Logging..." : "Log it 🚨"}
+              {loading ? (
+                <>
+                  <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-orbit" aria-hidden />
+                  Logging...
+                </>
+              ) : (
+                <>
+                  Log it
+                  <Flame className="w-4 h-4" aria-hidden />
+                </>
+              )}
             </button>
           </form>
         </div>
 
         {/* ── All history ── */}
         {allHistory.length > 0 && (
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+          <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-5 backdrop-blur-sm shadow-xl shadow-black/30 animate-fade-up">
             <h2 className="font-semibold text-sm mb-4">All History ({allHistory.length})</h2>
-            <div className="flex flex-col gap-2">
+            <ul className="flex flex-col gap-2 stagger">
               {allHistory.map(log => {
                 const cfg = WHO_CONFIG[log.who as keyof typeof WHO_CONFIG];
                 const li  = levelInfo(log.level);
                 return (
-                  <div key={log.id} className="flex items-center gap-3 bg-white/5 rounded-xl px-3 py-2.5 group">
+                  <li key={log.id} className="animate-fade-up flex items-center gap-3 bg-white/[0.04] hover:bg-white/[0.07] border border-white/10 rounded-xl px-3 py-2.5 transition-colors">
                     <span className="text-xl flex-shrink-0">{li.emoji}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={`text-xs font-semibold ${cfg?.text}`}>{cfg?.label}</span>
-                        <span className="text-white/30 text-xs">·</span>
-                        <span className="text-white/50 text-xs">Level {log.level}</span>
-                        <span className="text-white/30 text-xs">·</span>
-                        <span className="text-white/30 text-xs">
+                        <span className="text-white/40 text-xs">·</span>
+                        <span className="text-white/65 text-xs">Level {log.level}</span>
+                        <span className="text-white/40 text-xs">·</span>
+                        <span className="text-white/55 text-xs">
                           {new Date(log.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })}
                         </span>
                       </div>
-                      <p className="text-white/70 text-xs mt-0.5">{log.reason}</p>
+                      <p className="text-white/85 text-xs mt-0.5">{log.reason}</p>
                     </div>
-                    <button onClick={() => deleteLog(log.id)}
-                      className="opacity-30 group-hover:opacity-100 text-white/50 hover:text-red-400 text-xs transition-all flex-shrink-0 active:text-red-400"
-                    >✕</button>
-                  </div>
+                    <button
+                      type="button"
+                      onClick={() => deleteLog(log.id)}
+                      aria-label="Delete incident"
+                      className="flex items-center justify-center w-10 h-10 rounded-full text-white/50 hover:text-red-400 hover:bg-red-500/10 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 transition-colors flex-shrink-0"
+                    >
+                      <Trash className="w-4 h-4" aria-hidden />
+                    </button>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           </div>
         )}
 
         {logs.length === 0 && (
-          <div className="text-center py-8 text-white/20 text-sm">
-            No incidents logged yet 😇<br />
-            <span className="text-xs">Keep it that way...</span>
+          <div className="text-center py-8 text-white/55 text-sm flex flex-col items-center gap-2">
+            <span className="text-3xl animate-float">😇</span>
+            <p>No incidents logged yet</p>
+            <span className="text-xs text-white/40">Keep it that way...</span>
           </div>
         )}
       </div>

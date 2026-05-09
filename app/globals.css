@@ -3,16 +3,206 @@
 :root {
   --background: #0a0305;
   --foreground: #ffffff;
+  color-scheme: dark;
 }
 
-body {
+html, body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
+/* z-index scale: 10=sticky, 20=dropdown, 30=overlay, 40=drawer/modal, 50=toast */
+
+/* Form controls render natively-dark across browsers */
+input[type="date"], input[type="time"], input[type="datetime-local"], select {
+  color-scheme: dark;
+}
+
+/* Custom scrollbar — matches cosmic theme */
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(244,114,182,.15); border-radius: 999px; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(244,114,182,.3); }
+
+/* ── Animations ───────────────────────────────────────────────────── */
+
 @keyframes twinkle {
-  0%, 100% { opacity: 0.3; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.4); }
+  0%, 100% { opacity: .3; transform: scale(1); }
+  50%      { opacity: 1;  transform: scale(1.4); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) }
+  50%      { transform: translateY(-6px) }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0) }
+  50%      { transform: translateY(-10px) }
+}
+
+@keyframes fade-in {
+  from { opacity: 0 }
+  to   { opacity: 1 }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px) }
+  to   { opacity: 1; transform: translateY(0) }
+}
+
+@keyframes fade-up-lg {
+  from { opacity: 0; transform: translateY(20px) }
+  to   { opacity: 1; transform: translateY(0) }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(.96) }
+  to   { opacity: 1; transform: scale(1) }
+}
+
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-12px) }
+  to   { opacity: 1; transform: translateY(0) }
+}
+
+@keyframes slide-up-toast {
+  from { opacity: 0; transform: translate(-50%, 20px) }
+  to   { opacity: 1; transform: translate(-50%, 0) }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -1000px 0 }
+  100% { background-position: 1000px 0 }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(244,63,94,.45) }
+  50%      { box-shadow: 0 0 0 12px rgba(244,63,94,0) }
+}
+
+@keyframes heart-beat {
+  0%, 100% { transform: scale(1) }
+  20%      { transform: scale(1.18) }
+  40%      { transform: scale(1) }
+  60%      { transform: scale(1.12) }
+  80%      { transform: scale(1) }
+}
+
+@keyframes orbit-spin {
+  from { transform: rotate(0deg) }
+  to   { transform: rotate(360deg) }
+}
+
+@keyframes gradient-x {
+  0%, 100% { background-position: 0% 50% }
+  50%      { background-position: 100% 50% }
+}
+
+@keyframes shake-soft {
+  0%, 100% { transform: translateX(0) }
+  25%      { transform: translateX(-3px) }
+  75%      { transform: translateX(3px) }
+}
+
+/* Utilities */
+.animate-fade-in       { animation: fade-in .4s ease-out both }
+.animate-fade-up       { animation: fade-up .45s ease-out both }
+.animate-fade-up-lg    { animation: fade-up-lg .6s ease-out both }
+.animate-scale-in      { animation: scale-in .25s ease-out both }
+.animate-slide-down    { animation: slide-down .25s ease-out both }
+.animate-slide-up-toast{ animation: slide-up-toast .3s ease-out both }
+.animate-float         { animation: float 4s ease-in-out infinite }
+.animate-float-slow    { animation: float-slow 6s ease-in-out infinite }
+.animate-glow-pulse    { animation: glow-pulse 2.4s ease-out infinite }
+.animate-heart-beat    { animation: heart-beat 1.4s ease-in-out infinite }
+.animate-orbit         { animation: orbit-spin 12s linear infinite }
+.animate-gradient-x    { background-size: 200% 200%; animation: gradient-x 6s ease infinite }
+.animate-shake         { animation: shake-soft .35s ease-in-out }
+
+/* Stagger helpers — apply to children with .stagger > * */
+.stagger > *:nth-child(1) { animation-delay: .04s }
+.stagger > *:nth-child(2) { animation-delay: .08s }
+.stagger > *:nth-child(3) { animation-delay: .12s }
+.stagger > *:nth-child(4) { animation-delay: .16s }
+.stagger > *:nth-child(5) { animation-delay: .20s }
+.stagger > *:nth-child(6) { animation-delay: .24s }
+.stagger > *:nth-child(7) { animation-delay: .28s }
+.stagger > *:nth-child(8) { animation-delay: .32s }
+.stagger > *:nth-child(n+9) { animation-delay: .36s }
+
+/* Skeleton shimmer */
+.skeleton {
+  background: linear-gradient(90deg,
+    rgba(255,255,255,.04) 25%,
+    rgba(255,255,255,.10) 50%,
+    rgba(255,255,255,.04) 75%);
+  background-size: 1000px 100%;
+  animation: shimmer 1.6s infinite linear;
+}
+
+/* Aurora background — subtle moving gradient blobs */
+.aurora {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+.aurora::before, .aurora::after {
+  content: "";
+  position: absolute;
+  width: 60vmax;
+  height: 60vmax;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: .25;
+  animation: float-slow 14s ease-in-out infinite;
+}
+.aurora::before {
+  background: radial-gradient(circle, #be123c 0%, transparent 60%);
+  top: -20vmax; left: -10vmax;
+}
+.aurora::after {
+  background: radial-gradient(circle, #4c1d95 0%, transparent 60%);
+  bottom: -25vmax; right: -15vmax;
+  animation-delay: -7s;
+}
+
+/* emoji-picker-react — match cosmic theme */
+.emoji-picker-host .EmojiPickerReact {
+  --epr-bg-color: #100509;
+  --epr-category-label-bg-color: #100509;
+  --epr-picker-border-color: transparent;
+  --epr-search-input-bg-color: rgba(255,255,255,.06);
+  --epr-search-input-bg-color-active: rgba(255,255,255,.10);
+  --epr-search-border-color: rgba(244,114,182,.5);
+  --epr-search-input-text-color: #ffffff;
+  --epr-search-input-placeholder-color: rgba(255,255,255,.45);
+  --epr-text-color: rgba(255,255,255,.92);
+  --epr-hover-bg-color: rgba(244,114,182,.15);
+  --epr-focus-bg-color: rgba(244,114,182,.25);
+  --epr-highlight-color: #f43f5e;
+  --epr-category-icon-active-color: #f43f5e;
+  --epr-skin-tone-picker-menu-color: #100509;
+  border: none;
+}
+.emoji-picker-host .EmojiPickerReact .epr-emoji-category-label {
+  font-size: 11px;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.55);
+}
+
+/* Reduced motion: disable everything that moves */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .aurora::before, .aurora::after { animation: none !important }
 }

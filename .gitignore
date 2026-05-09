@@ -51,6 +51,7 @@ prisma/prisma/
 # AI tooling / local context files
 AGENTS.md
 CLAUDE.md
+.claude/
 
 # Prisma local config (auto-generated, not needed on Vercel)
 prisma.config.ts

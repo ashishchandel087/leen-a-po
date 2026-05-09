@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sendPushToOthers } from "@/lib/push";
 
 // GET — fetch all mood logs
 export async function GET() {
@@ -28,5 +29,16 @@ export async function POST(req: NextRequest) {
     data: { mood, note, userId: session.user.id },
     include: { user: { select: { name: true } } },
   });
+
+  // Notify the partner — fire-and-forget, never block the response.
+  const moodPreview = String(mood).trim();
+  const notePreview = note ? ` — ${String(note).trim()}` : "";
+  const fullBody = `feeling ${moodPreview}${notePreview}`;
+  sendPushToOthers(session.user.id, {
+    title: `💭 ${session.user.name}`,
+    body: fullBody.length > 120 ? fullBody.slice(0, 119) + "…" : fullBody,
+    url: "/dashboard",
+  }).catch(() => {});
+
   return NextResponse.json(log);
 }

@@ -3,9 +3,27 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
+// In dev (HTTP over LAN) we need plain non-secure cookies so the browser
+// actually stores them. In production over HTTPS, NextAuth's defaults are correct.
+const isProd = process.env.NODE_ENV === "production";
+
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
+  cookies: {
+    sessionToken: {
+      name: isProd ? "__Secure-next-auth.session-token" : "next-auth.session-token",
+      options: { httpOnly: true, sameSite: "lax", path: "/", secure: isProd },
+    },
+    callbackUrl: {
+      name: isProd ? "__Secure-next-auth.callback-url" : "next-auth.callback-url",
+      options: { sameSite: "lax", path: "/", secure: isProd },
+    },
+    csrfToken: {
+      name: isProd ? "__Host-next-auth.csrf-token" : "next-auth.csrf-token",
+      options: { httpOnly: true, sameSite: "lax", path: "/", secure: isProd },
+    },
+  },
   providers: [
     CredentialsProvider({
       name: "credentials",

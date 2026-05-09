@@ -4,6 +4,9 @@ import { useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import AppHeader from "../components/AppHeader";
+import LoadingScreen from "../components/LoadingScreen";
+import { ArrowRight } from "../components/Icons";
 
 interface Person {
   name: string;
@@ -307,44 +310,43 @@ function MoonMeetCanvas() {
 /* ── Person card ── */
 function PersonCard({ person }: { person: Person }) {
   return (
-    <div className={`bg-gradient-to-b ${person.gradient} border ${person.border} rounded-2xl overflow-hidden shadow-xl flex flex-col`}>
-      {/* Details */}
+    <div className={`bg-gradient-to-b ${person.gradient} border ${person.border} rounded-2xl overflow-hidden shadow-xl shadow-black/40 flex flex-col transition-transform hover:-translate-y-0.5`}>
       <div className="p-5 flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-white">{person.name}</h2>
-            <p className="text-white/40 text-xs">{person.birthdate}</p>
+            <p className="text-white/65 text-xs">{person.birthdate}</p>
           </div>
-          <span className="text-4xl">{person.emoji}</span>
+          <span className="text-4xl animate-float-slow">{person.emoji}</span>
         </div>
 
         <div className="flex items-center gap-3">
           <div className={`text-4xl font-black ${person.accent}`}>{person.symbol}</div>
           <div>
             <p className={`font-semibold text-sm ${person.accent}`}>{person.sign}</p>
-            <p className="text-white/40 text-xs">{person.modality} · {person.element} {person.elementEmoji}</p>
+            <p className="text-white/65 text-xs">{person.modality} · {person.element} {person.elementEmoji}</p>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <div className="bg-white/5 rounded-xl px-3 py-2">
-            <p className="text-white/40 text-xs mb-0.5">Ruling Planet</p>
+          <div className="bg-white/10 rounded-xl px-3 py-2 border border-white/5">
+            <p className="text-white/70 text-[11px] mb-0.5 uppercase tracking-wider">Ruling Planet</p>
             <p className="text-white text-sm font-medium">{person.rulingEmoji} {person.ruling}</p>
           </div>
-          <div className="bg-white/5 rounded-xl px-3 py-2">
-            <p className="text-white/40 text-xs mb-0.5">Moon Sign ~</p>
+          <div className="bg-white/10 rounded-xl px-3 py-2 border border-white/5">
+            <p className="text-white/70 text-[11px] mb-0.5 uppercase tracking-wider">Moon Sign</p>
             <p className="text-white text-sm font-medium">{person.moonEmoji} {person.moonSign}</p>
           </div>
         </div>
 
         <div className="flex flex-wrap gap-1.5">
           {person.traits.map((t) => (
-            <span key={t} className={`text-xs px-2.5 py-1 rounded-full ${person.tagBg}`}>{t}</span>
+            <span key={t} className={`text-xs px-2.5 py-1 rounded-full font-medium ${person.tagBg}`}>{t}</span>
           ))}
         </div>
 
-        <p className="text-white/50 text-xs leading-relaxed italic border-t border-white/10 pt-3">
-          "{person.desc}"
+        <p className="text-white/75 text-xs leading-relaxed italic border-t border-white/10 pt-3">
+          &ldquo;{person.desc}&rdquo;
         </p>
       </div>
     </div>
@@ -361,45 +363,41 @@ export default function AboutPage() {
   }, [status, router]);
 
   if (status === "loading") {
-    return <div className="min-h-screen bg-[#0a0305] flex items-center justify-center text-white/40 animate-pulse">Loading...</div>;
+    return <LoadingScreen message="Reading the stars" />;
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0305] text-white">
-      <header className="sticky top-0 z-20 bg-[#0a0305]/80 backdrop-blur border-b border-white/10 px-5 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="font-bold">About Us 🌌</h1>
-          <p className="text-white/40 text-xs">Stars, signs &amp; souls</p>
-        </div>
-        <Link href="/dashboard" className="text-white/40 text-xs hover:text-white/60">← Dashboard</Link>
-      </header>
+    <div className="min-h-screen bg-[#0a0305] text-white relative">
+      <div className="aurora" aria-hidden />
 
-      <div className="max-w-2xl mx-auto px-4 py-6 flex flex-col gap-6">
+      <AppHeader variant="page" title="About Us 🌌" subtitle="Stars, signs &amp; souls" />
+
+      <div className="relative max-w-2xl mx-auto px-4 py-6 flex flex-col gap-6">
 
         {/* Intro */}
-        <div className="text-center py-2">
-          <p className="text-white/30 text-xs tracking-widest uppercase">Written in the stars</p>
-          <p className="text-white/60 text-sm mt-1">Two water signs. One story.</p>
+        <div className="text-center py-2 animate-fade-up">
+          <p className="text-rose-300/80 text-xs tracking-[0.25em] uppercase">Written in the stars</p>
+          <p className="text-white/75 text-sm mt-1.5">Two water signs. One story.</p>
         </div>
 
         {/* ── Moon meeting animation box ── */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+        <div className="bg-white/[0.04] border border-white/10 rounded-2xl overflow-hidden backdrop-blur-sm shadow-xl shadow-black/30 animate-fade-up">
           <div className="px-5 pt-5 pb-2 text-center">
-            <p className="text-xs text-white/30 uppercase tracking-widest">Birthday Moons</p>
-            <p className="text-white/60 text-sm mt-1">Finding each other 🌙</p>
+            <p className="text-xs text-rose-300/80 uppercase tracking-[0.25em]">Birthday Moons</p>
+            <p className="text-white/75 text-sm mt-1.5">Finding each other 🌙</p>
           </div>
           <MoonMeetCanvas />
         </div>
 
         {/* ── Planet Explorer ── */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-          <p className="text-xs text-white/30 uppercase tracking-widest mb-1 text-center">Ruling Planet</p>
-          <p className="text-white/50 text-sm text-center mb-5">Click a planet to explore 🚀</p>
+        <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-5 backdrop-blur-sm shadow-xl shadow-black/30 animate-fade-up">
+          <p className="text-xs text-rose-300/80 uppercase tracking-[0.25em] mb-1 text-center">Ruling Planet</p>
+          <p className="text-white/65 text-sm text-center mb-5">Tap a planet to explore</p>
           <div className="grid grid-cols-2 gap-3">
 
             {/* Mars card */}
-            <Link href="/mars" className="group block">
-              <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden transition-all duration-200 group-hover:border-rose-500/40 group-hover:bg-white/8 group-active:scale-95">
+            <Link href="/mars" className="group block cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 rounded-2xl">
+              <div className="bg-white/[0.04] border border-white/10 rounded-2xl overflow-hidden transition-all duration-300 group-hover:border-rose-400/50 group-hover:bg-white/[0.07] group-hover:shadow-lg group-hover:shadow-rose-700/20">
                 <div className="h-36 relative pointer-events-none">
                   <MiniPlanetCanvas
                     fallbackColor={0xc1440e}
@@ -415,17 +413,17 @@ export default function AboutPage() {
                 </div>
                 <div className="px-4 py-3 border-t border-white/5">
                   <p className="font-semibold text-sm text-white">Ashish</p>
-                  <p className="text-white/40 text-xs mt-0.5">Mars 🔴 · The Red Planet</p>
-                  <p className="text-rose-400 text-xs mt-2 group-hover:text-rose-300 transition-colors">
-                    Explore →
+                  <p className="text-white/65 text-xs mt-0.5">Mars 🔴 · The Red Planet</p>
+                  <p className="text-rose-300 text-xs mt-2 font-medium flex items-center gap-1 group-hover:text-rose-200 transition-colors">
+                    Explore <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" aria-hidden />
                   </p>
                 </div>
               </div>
             </Link>
 
             {/* Neptune card */}
-            <Link href="/neptune" className="group block">
-              <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden transition-all duration-200 group-hover:border-blue-500/40 group-hover:bg-white/8 group-active:scale-95">
+            <Link href="/neptune" className="group block cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-2xl">
+              <div className="bg-white/[0.04] border border-white/10 rounded-2xl overflow-hidden transition-all duration-300 group-hover:border-blue-400/50 group-hover:bg-white/[0.07] group-hover:shadow-lg group-hover:shadow-blue-700/20">
                 <div className="h-36 relative pointer-events-none">
                   <MiniPlanetCanvas
                     fallbackColor={0x1a6dcc}
@@ -441,9 +439,9 @@ export default function AboutPage() {
                 </div>
                 <div className="px-4 py-3 border-t border-white/5">
                   <p className="font-semibold text-sm text-white">Leena</p>
-                  <p className="text-white/40 text-xs mt-0.5">Neptune 🔵 · The Ice Giant</p>
-                  <p className="text-blue-400 text-xs mt-2 group-hover:text-blue-300 transition-colors">
-                    Explore →
+                  <p className="text-white/65 text-xs mt-0.5">Neptune 🔵 · The Ice Giant</p>
+                  <p className="text-blue-300 text-xs mt-2 font-medium flex items-center gap-1 group-hover:text-blue-200 transition-colors">
+                    Explore <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" aria-hidden />
                   </p>
                 </div>
               </div>
@@ -453,37 +451,40 @@ export default function AboutPage() {
         </div>
 
         {/* Profile cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <PersonCard person={ASHISH} />
-          <PersonCard person={LEENA} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 stagger">
+          <div className="animate-fade-up"><PersonCard person={ASHISH} /></div>
+          <div className="animate-fade-up"><PersonCard person={LEENA} /></div>
         </div>
 
         {/* Compatibility */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+        <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-5 backdrop-blur-sm shadow-xl shadow-black/30 animate-fade-up">
           <div className="text-center mb-5">
-            <p className="text-xs text-white/30 uppercase tracking-widest mb-1">Compatibility</p>
+            <p className="text-xs text-rose-300/80 uppercase tracking-[0.25em] mb-2">Compatibility</p>
             <div className="flex items-center justify-center gap-3">
-              <span className="text-2xl">🦀</span>
-              <span className="text-white/30 text-lg">×</span>
-              <span className="text-2xl">🦂</span>
+              <span className="text-3xl animate-float">🦀</span>
+              <span className="text-rose-400/60 text-lg animate-heart-beat">×</span>
+              <span className="text-3xl animate-float" style={{ animationDelay: "1s" }}>🦂</span>
             </div>
-            <p className="text-white font-semibold text-sm mt-2">Cancer + Scorpio</p>
-            <p className="text-white/40 text-xs">Water + Water · A deeply emotional bond</p>
+            <p className="text-white font-semibold text-sm mt-3">Cancer + Scorpio</p>
+            <p className="text-white/65 text-xs mt-0.5">Water + Water · A deeply emotional bond</p>
           </div>
-          <div className="flex flex-col gap-3">
+          <ul className="flex flex-col gap-3 stagger">
             {COMPAT.map((c) => (
-              <div key={c.label} className="flex gap-3 bg-white/5 rounded-xl px-4 py-3">
+              <li
+                key={c.label}
+                className="animate-fade-up flex gap-3 bg-white/[0.04] hover:bg-white/[0.07] border border-white/10 rounded-xl px-4 py-3 transition-colors"
+              >
                 <span className="text-xl flex-shrink-0">{c.icon}</span>
                 <div>
-                  <p className="text-white/80 text-xs font-semibold">{c.label}</p>
-                  <p className="text-white/40 text-xs mt-0.5">{c.desc}</p>
+                  <p className="text-white/90 text-xs font-semibold">{c.label}</p>
+                  <p className="text-white/65 text-xs mt-0.5 leading-relaxed">{c.desc}</p>
                 </div>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
 
-        <p className="text-white/20 text-xs text-center pb-4">
+        <p className="text-white/40 text-xs text-center pb-4 italic">
           ~ Moon signs are approximate without exact birth time &amp; location ~
         </p>
       </div>
