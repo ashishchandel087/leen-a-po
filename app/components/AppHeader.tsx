@@ -75,7 +75,10 @@ export default function AppHeader({
 
   return (
     <>
-      <header className="sticky top-0 z-30 bg-[#0a0305]/85 backdrop-blur-md border-b border-white/10">
+      <header
+        className="sticky top-0 z-30 bg-[#0a0305]/85 backdrop-blur-md border-b border-white/10"
+        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+      >
         <div className="max-w-5xl mx-auto px-4 sm:px-5 py-3.5 flex items-center justify-between gap-3">
           {/* Left */}
           <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -231,6 +234,10 @@ export default function AppHeader({
             role="dialog"
             aria-modal="true"
             aria-label="Menu"
+            style={{
+              paddingTop: "env(safe-area-inset-top, 0px)",
+              paddingBottom: "env(safe-area-inset-bottom, 0px)",
+            }}
             className={`fixed top-0 right-0 bottom-0 z-40 w-[78%] max-w-xs bg-[#0c0407] border-l border-white/10 shadow-2xl shadow-black/60 md:hidden transition-transform duration-300 ${
               open ? "translate-x-0" : "translate-x-full"
             }`}
