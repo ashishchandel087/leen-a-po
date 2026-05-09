@@ -11,6 +11,26 @@ html, body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* Prevent any element from forcing horizontal scroll on mobile. */
+  max-width: 100%;
+  overflow-x: hidden;
+  /* Disable iOS double-tap zoom while still allowing native form interactions. */
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* iOS Safari sometimes ignores `user-scalable=no` for accessibility and
+ * auto-zooms when an input with font-size < 16px gains focus. The viewport
+ * meta usually prevents this in iOS 16+, but we belt-and-braces it for older
+ * versions: bump form controls to 16px on touch-capable narrow screens only,
+ * so desktop layouts keep their text-sm form fields. */
+@media (max-width: 768px) and (hover: none) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: 16px;
+  }
 }
 
 /* z-index scale: 10=sticky, 20=dropdown, 30=overlay, 40=drawer/modal, 50=toast */
