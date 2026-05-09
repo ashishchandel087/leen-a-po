@@ -60,6 +60,7 @@ export default function ChatPage() {
   const messagesRef = useRef<Message[]>([]);
   const hasMoreRef = useRef(true);
   const loadingMoreRef = useRef(false);
+  const initialScrollDoneRef = useRef(false);
   const [connected, setConnected] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -191,14 +192,29 @@ export default function ChatPage() {
           setHasMore(false);
         }
         setLoaded(true);
-        requestAnimationFrame(() => scrollToBottom(false));
+        // Don't scroll here — the messages haven't been committed to the DOM
+        // yet, so scrollHeight is still 0. A separate effect handles the
+        // initial scroll once the bubbles have actually painted.
       } catch {
         if (alive) toast.show("Couldn't load chat", "error");
         setLoaded(true);
       }
     })();
     return () => { alive = false; };
-  }, [status, scrollToBottom, toast]);
+  }, [status, toast]);
+
+  // Initial scroll-to-bottom — runs once, after the first batch of messages
+  // is actually rendered (so scrollHeight reflects real content).
+  useEffect(() => {
+    if (!loaded || initialScrollDoneRef.current || messages.length === 0) return;
+    initialScrollDoneRef.current = true;
+    // Two rAFs: first lets React commit, second lets the browser do layout.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollToBottom(false);
+      });
+    });
+  }, [loaded, messages.length, scrollToBottom]);
 
   // Real-time subscription via Server-Sent Events. EventSource auto-reconnects
   // with exponential backoff on transient drops, so we don't need our own retry loop.
@@ -363,7 +379,11 @@ export default function ChatPage() {
         className="relative flex-1 overflow-y-auto overscroll-contain px-3 sm:px-4 pt-4"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}
       >
-        <div className="max-w-2xl mx-auto flex flex-col gap-2">
+        <div className="max-w-2xl mx-auto flex flex-col gap-2 min-h-full">
+          {/* Flex spacer — fills empty space above messages so they anchor
+              to the bottom when there are fewer than fit on screen. Collapses
+              to 0 when messages overflow, so scroll behavior is normal. */}
+          <div className="flex-1" aria-hidden />
           {!loaded && (
             <div className="flex justify-center py-8">
               <span
