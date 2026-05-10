@@ -109,7 +109,9 @@ if (typeof window === "undefined") startListener();
 async function broadcast(event: BusEvent) {
   const json = JSON.stringify(event);
   try {
-    await prisma.$queryRaw`SELECT pg_notify(${CHANNEL}, ${json})`;
+    // $executeRaw (not $queryRaw) — pg_notify returns void, which $queryRaw
+    // can't deserialize. $executeRaw doesn't try to read columns back.
+    await prisma.$executeRaw`SELECT pg_notify(${CHANNEL}, ${json})`;
   } catch (err) {
     console.warn("[chat-bus] pg_notify failed:", err instanceof Error ? err.message : err);
   }
