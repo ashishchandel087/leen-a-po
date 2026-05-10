@@ -1279,7 +1279,7 @@ export default function ChatPage() {
           )}
         </AnimatePresence>
 
-        <div className="max-w-2xl mx-auto px-3 sm:px-4 py-3 flex items-end gap-2">
+        <div className="max-w-2xl mx-auto px-2 sm:px-3 py-3 flex items-end gap-1.5 sm:gap-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -1299,7 +1299,7 @@ export default function ChatPage() {
             disabled={attachments.length >= MAX_ATTACHMENTS || voiceOpen}
             aria-label="Attach images"
             whileTap={tapPress}
-            className="flex items-center justify-center w-11 h-11 shrink-0 rounded-full bg-white/[0.06] hover:bg-white/[0.10] active:bg-white/[0.12] disabled:opacity-40 disabled:cursor-not-allowed text-white/75 hover:text-rose-300 cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+            className="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 shrink-0 rounded-full bg-white/[0.06] hover:bg-white/[0.10] active:bg-white/[0.12] disabled:opacity-40 disabled:cursor-not-allowed text-white/75 hover:text-rose-300 cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
           >
             <ImagePlus className="w-5 h-5" aria-hidden />
           </motion.button>
@@ -1312,7 +1312,7 @@ export default function ChatPage() {
             aria-label="Open stickers"
             aria-expanded={stickerPickerOpen}
             whileTap={tapPress}
-            className={`flex items-center justify-center w-11 h-11 shrink-0 rounded-full transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 disabled:opacity-40 disabled:cursor-not-allowed ${
+            className={`flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 shrink-0 rounded-full transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 disabled:opacity-40 disabled:cursor-not-allowed ${
               stickerPickerOpen ? "bg-rose-500/25 text-rose-200" : "bg-white/[0.06] hover:bg-white/[0.10] text-white/75 hover:text-rose-300"
             }`}
           >
@@ -1325,7 +1325,7 @@ export default function ChatPage() {
             disabled={voiceOpen}
             aria-label="Record voice note"
             whileTap={tapPress}
-            className="flex items-center justify-center w-11 h-11 shrink-0 rounded-full bg-white/[0.06] hover:bg-white/[0.10] active:bg-white/[0.12] disabled:opacity-40 disabled:cursor-not-allowed text-white/75 hover:text-rose-300 cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+            className="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 shrink-0 rounded-full bg-white/[0.06] hover:bg-white/[0.10] active:bg-white/[0.12] disabled:opacity-40 disabled:cursor-not-allowed text-white/75 hover:text-rose-300 cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
               <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
@@ -1346,7 +1346,7 @@ export default function ChatPage() {
             placeholder={
               replyTo ? `Reply to ${replyTo.sender.name}...` : attachments.length ? "Add a caption..." : "Say something sweet..."
             }
-            className="flex-1 resize-none bg-white/[0.06] border border-white/10 rounded-2xl px-4 py-3 text-sm text-white placeholder-white/45 focus:outline-none focus:border-rose-400 focus:bg-white/[0.09] transition-colors max-h-40"
+            className="flex-1 min-w-0 resize-none bg-white/[0.06] border border-white/10 rounded-2xl px-3.5 py-3 text-base sm:text-sm text-white placeholder-white/45 focus:outline-none focus:border-rose-400 focus:bg-white/[0.09] transition-colors max-h-40"
           />
 
           <motion.button
@@ -1356,7 +1356,7 @@ export default function ChatPage() {
             aria-label="Send message"
             whileTap={tapPress}
             whileHover={{ scale: 1.04 }}
-            className="flex items-center justify-center w-12 h-12 shrink-0 rounded-full bg-gradient-to-br from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 disabled:opacity-40 disabled:cursor-not-allowed text-white cursor-pointer shadow-lg shadow-rose-700/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+            className="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 shrink-0 rounded-full bg-gradient-to-br from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 disabled:opacity-40 disabled:cursor-not-allowed text-white cursor-pointer shadow-lg shadow-rose-700/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
           >
             {sending ? (
               <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-orbit" aria-hidden />
