@@ -4,13 +4,85 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendPushToOthers } from "@/lib/push";
 import { publishMessage, publishDelete } from "@/lib/chat-bus";
+import { isValidAttachmentKey, signKeys } from "@/lib/r2";
 
 const MAX_TEXT_LENGTH = 2000;
+const MAX_ATTACHMENTS = 6;
+
+type ApiMessage = {
+  id: string;
+  text: string;
+  createdAt: Date;
+  sender: { id: string; name: string };
+  attachments: string[];
+  reactions: { userId: string; userName: string; emoji: string }[];
+  replyTo: {
+    id: string;
+    text: string;
+    sender: { id: string; name: string };
+    attachments: string[];
+  } | null;
+};
+
+type RawMessage = {
+  id: string;
+  text: string;
+  createdAt: Date;
+  attachments: string[];
+  sender: { id: string; name: string };
+  replyTo: {
+    id: string;
+    text: string;
+    deletedAt: Date | null;
+    attachments: string[];
+    sender: { id: string; name: string };
+  } | null;
+  reactions: { userId: string; emoji: string; user: { name: string } }[];
+};
+
+async function toApiMessage(m: RawMessage): Promise<ApiMessage> {
+  const replyTo =
+    m.replyTo && !m.replyTo.deletedAt
+      ? {
+          id: m.replyTo.id,
+          text: m.replyTo.text,
+          sender: m.replyTo.sender,
+          attachments: await signKeys(m.replyTo.attachments ?? []),
+        }
+      : null;
+  return {
+    id: m.id,
+    text: m.text,
+    createdAt: m.createdAt,
+    sender: m.sender,
+    attachments: await signKeys(m.attachments ?? []),
+    reactions: (m.reactions ?? []).map((r) => ({
+      userId: r.userId,
+      userName: r.user.name,
+      emoji: r.emoji,
+    })),
+    replyTo,
+  };
+}
+
+const MESSAGE_INCLUDE = {
+  sender: { select: { id: true, name: true } },
+  reactions: { include: { user: { select: { name: true } } } },
+  replyTo: {
+    select: {
+      id: true,
+      text: true,
+      deletedAt: true,
+      attachments: true,
+      sender: { select: { id: true, name: true } },
+    },
+  },
+} as const;
 
 // GET — fetch messages, ordered oldest→newest for natural chat flow.
 //   no params      : last 100 messages
-//   ?before=<ISO>  : 100 messages older than the given timestamp (for infinite scroll)
-//   ?since=<ISO>   : up to 200 messages newer than the given timestamp (legacy polling)
+//   ?before=<ISO>  : 100 older than the given timestamp (infinite scroll)
+//   ?since=<ISO>   : up to 200 newer than the given timestamp
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -18,11 +90,7 @@ export async function GET(req: NextRequest) {
   const since = req.nextUrl.searchParams.get("since");
   const before = req.nextUrl.searchParams.get("before");
 
-  const where: {
-    deletedAt: null;
-    createdAt?: { gt?: Date; lt?: Date };
-  } = { deletedAt: null };
-
+  const where: { deletedAt: null; createdAt?: { gt?: Date; lt?: Date } } = { deletedAt: null };
   if (since) {
     const d = new Date(since);
     if (!isNaN(d.getTime())) where.createdAt = { gt: d };
@@ -33,15 +101,14 @@ export async function GET(req: NextRequest) {
 
   const messages = await prisma.message.findMany({
     where,
-    include: { sender: { select: { id: true, name: true } } },
+    include: MESSAGE_INCLUDE,
     orderBy: { createdAt: since ? "asc" : "desc" },
     take: since ? 200 : 100,
   });
 
-  // For initial load and `?before` paging we fetch desc so we get the latest
-  // page; reverse to oldest→newest before returning so the client can prepend
-  // / append in chronological order without re-sorting.
-  return NextResponse.json(since ? messages : messages.reverse());
+  const ordered = since ? messages : messages.reverse();
+  const out = await Promise.all(ordered.map((m) => toApiMessage(m as RawMessage)));
+  return NextResponse.json(out);
 }
 
 // POST — send a message
@@ -49,29 +116,63 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { text } = await req.json();
+  const body = await req.json().catch(() => ({}));
+  const { text, attachments, replyToId } = body as {
+    text?: unknown;
+    attachments?: unknown;
+    replyToId?: unknown;
+  };
+
   const trimmed = typeof text === "string" ? text.trim() : "";
-  if (!trimmed) return NextResponse.json({ error: "Message required" }, { status: 400 });
   if (trimmed.length > MAX_TEXT_LENGTH) {
     return NextResponse.json({ error: `Max ${MAX_TEXT_LENGTH} characters` }, { status: 400 });
   }
 
+  const rawAttachments: unknown[] = Array.isArray(attachments) ? attachments : [];
+  const cleanAttachments: string[] = rawAttachments
+    .filter((k) => isValidAttachmentKey(k, session.user.id))
+    .slice(0, MAX_ATTACHMENTS);
+
+  if (!trimmed && cleanAttachments.length === 0) {
+    return NextResponse.json({ error: "Message or attachment required" }, { status: 400 });
+  }
+
+  // Validate replyToId if present — must reference a real (non-deleted) message
+  let validReplyToId: string | null = null;
+  if (typeof replyToId === "string" && replyToId) {
+    const replyTarget = await prisma.message.findFirst({
+      where: { id: replyToId, deletedAt: null },
+      select: { id: true },
+    });
+    if (replyTarget) validReplyToId = replyTarget.id;
+  }
+
   const message = await prisma.message.create({
-    data: { text: trimmed, senderId: session.user.id },
-    include: { sender: { select: { id: true, name: true } } },
+    data: {
+      text: trimmed,
+      attachments: cleanAttachments,
+      senderId: session.user.id,
+      replyToId: validReplyToId,
+    },
+    include: MESSAGE_INCLUDE,
   });
 
-  // Fan out to all live SSE listeners (both partners' open chat tabs).
-  publishMessage(message);
+  const apiMessage = await toApiMessage(message as RawMessage);
+  publishMessage(apiMessage);
 
-  // Native push to anyone whose tab is closed.
+  // Push notification — describe the message accurately.
+  const previewText = trimmed
+    ? trimmed.length > 80 ? trimmed.slice(0, 79) + "…" : trimmed
+    : cleanAttachments.length === 1
+    ? "📷 sent a photo"
+    : `📷 sent ${cleanAttachments.length} photos`;
   sendPushToOthers(session.user.id, {
     title: `💬 ${session.user.name}`,
-    body: trimmed.length > 80 ? trimmed.slice(0, 79) + "…" : trimmed,
+    body: previewText,
     url: "/chat",
   }).catch(() => {});
 
-  return NextResponse.json(message);
+  return NextResponse.json(apiMessage);
 }
 
 // DELETE — sender can delete their own message (soft delete)

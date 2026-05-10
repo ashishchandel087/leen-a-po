@@ -4,7 +4,7 @@ import { ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import {
-  Menu, X, ArrowLeft, LogOut, Settings, Heart, Telescope, Flame, Bell, BellOff, MessageCircle,
+  Menu, X, ArrowLeft, LogOut, Settings, Heart, Telescope, Flame, Bell, BellOff, MessageCircle, Image,
 } from "./Icons";
 
 interface NavItem {
@@ -17,6 +17,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: "/dashboard", label: "Home",      icon: Heart,         tone: "rose" },
   { href: "/chat",      label: "Chat",      icon: MessageCircle, tone: "rose" },
+  { href: "/gallery",   label: "Gallery",   icon: Image,         tone: "rose" },
   { href: "/about",     label: "About Us",  icon: Moon,          tone: "muted" },
   { href: "/pissoff",   label: "😤 Meter",  icon: Flame,         tone: "orange" },
   { href: "/apod",      label: "APOD",      icon: Telescope,     tone: "muted" },

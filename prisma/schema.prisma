@@ -8,14 +8,20 @@ datasource db {
 }
 
 model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
-  password  String
-  name      String
-  role      String    @default("user")
-  createdAt DateTime  @default(now())
-  moods     MoodLog[]
-  messages  Message[]
+  id          String    @id @default(cuid())
+  email       String    @unique
+  password    String
+  name        String
+  role        String    @default("user")
+  createdAt   DateTime  @default(now())
+  // Presence + read-receipts: lastSeenAt updated on heartbeat / activity,
+  // lastReadAt is the timestamp of the latest message this user has read.
+  lastSeenAt  DateTime?
+  lastReadAt  DateTime?
+  moods       MoodLog[]
+  messages    Message[]
+  memories    Memory[]
+  reactions   MessageReaction[]
 }
 
 model MoodLog {
@@ -81,12 +87,72 @@ model SpecialOccasion {
 }
 
 model Message {
-  id        String    @id @default(cuid())
-  senderId  String
-  sender    User      @relation(fields: [senderId], references: [id])
-  text      String
-  createdAt DateTime  @default(now())
-  deletedAt DateTime?
+  id          String    @id @default(cuid())
+  senderId    String
+  sender      User      @relation(fields: [senderId], references: [id])
+  text        String    @default("")
+  attachments String[]  @default([])
+  // Reply: optional self-reference to a message this one quotes.
+  replyToId   String?
+  replyTo     Message?  @relation("MessageReply", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies     Message[] @relation("MessageReply")
+  reactions   MessageReaction[]
+  createdAt   DateTime  @default(now())
+  deletedAt   DateTime?
 
   @@index([createdAt])
+  @@index([replyToId])
+}
+
+model MessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String
+  createdAt DateTime @default(now())
+
+  // One emoji per user per message — toggling re-uses this row.
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+}
+
+model StickerPack {
+  id        String    @id @default(cuid())
+  name      String
+  emoji     String?
+  order     Int       @default(0)
+  stickers  Sticker[]
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+}
+
+model Sticker {
+  id        String      @id @default(cuid())
+  packId    String
+  pack      StickerPack @relation(fields: [packId], references: [id], onDelete: Cascade)
+  key       String      // R2 key, e.g. "stickers/<id>.png"
+  order     Int         @default(0)
+  createdAt DateTime    @default(now())
+  deletedAt DateTime?
+
+  @@index([packId])
+}
+
+model Memory {
+  id           String    @id @default(cuid())
+  uploadedById String
+  uploadedBy   User      @relation(fields: [uploadedById], references: [id])
+  date         String    // YYYY-MM-DD — when the memory happened
+  caption      String    @default("")
+  location     String?   // free-text place name
+  lat          Float?    // optional lat/lng for map view
+  lng          Float?
+  attachments  String[]  @default([]) // R2 keys: memories/<userId>/<id>.<ext>
+  createdAt    DateTime  @default(now())
+  deletedAt    DateTime?
+
+  @@index([date])
+  @@index([uploadedById])
 }

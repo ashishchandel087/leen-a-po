@@ -35,12 +35,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geist.variable} h-full overflow-x-hidden`}>
+    <html lang="en" className={`${geist.variable} h-full`}>
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
-      <body className="min-h-full bg-[#0a0305] text-white overflow-x-hidden overscroll-y-contain">
+      <body className="min-h-full bg-[#0a0305] text-white">
         <Providers>{children}</Providers>
       </body>
     </html>

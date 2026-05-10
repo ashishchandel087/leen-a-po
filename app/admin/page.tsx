@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import AppHeader from "../components/AppHeader";
 import LoadingScreen from "../components/LoadingScreen";
 import { useToast } from "../components/Toast";
-import { Trash, Plus, Sparkles, User as UserIcon } from "../components/Icons";
+import { Trash, Plus, Sparkles, User as UserIcon, ArrowRight } from "../components/Icons";
 
 interface User {
   id: string;
@@ -160,6 +161,21 @@ export default function AdminPage() {
       <AppHeader variant="page" title="Admin Panel 🔐" subtitle="Manage timeline & users" />
 
       <div className="relative max-w-lg mx-auto px-4 py-6 flex flex-col gap-6">
+
+        {/* Quick links to sub-pages */}
+        <Link
+          href="/admin/stickers"
+          className="bg-white/[0.04] hover:bg-white/[0.07] border border-white/10 hover:border-rose-400/40 rounded-2xl p-4 flex items-center justify-between gap-3 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 animate-fade-up"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="text-2xl shrink-0">🎨</span>
+            <div className="min-w-0">
+              <p className="font-semibold text-sm text-white">Sticker Packs</p>
+              <p className="text-white/65 text-xs truncate">Upload and manage sticker collections</p>
+            </div>
+          </div>
+          <ArrowRight className="w-4 h-4 text-rose-300 shrink-0" aria-hidden />
+        </Link>
 
         {/* Timeline Events */}
         <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-5 backdrop-blur-sm shadow-xl shadow-black/30 animate-fade-up">

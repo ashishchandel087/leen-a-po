@@ -29,10 +29,38 @@ export async function GET(req: NextRequest) {
       // Greeting comment so the client immediately sees the connection open.
       enqueue(`: connected\n\n`);
 
-      // Subscribe to the bus
+      // Subscribe to the bus — forward each event type to the SSE stream.
       const unsubscribe = subscribe({
-        message: (payload) => enqueue(`event: message\ndata: ${JSON.stringify(payload)}\n\n`),
-        delete: (id) => enqueue(`event: delete\ndata: ${JSON.stringify({ id })}\n\n`),
+        message: (e) => enqueue(`event: message\ndata: ${JSON.stringify(e.payload)}\n\n`),
+        delete: (e) => enqueue(`event: delete\ndata: ${JSON.stringify({ id: e.id })}\n\n`),
+        reaction: (e) =>
+          enqueue(
+            `event: reaction\ndata: ${JSON.stringify({
+              messageId: e.messageId,
+              userId: e.userId,
+              userName: e.userName,
+              emoji: e.emoji,
+              action: e.action,
+            })}\n\n`
+          ),
+        read: (e) =>
+          enqueue(`event: read\ndata: ${JSON.stringify({ userId: e.userId, lastReadAt: e.lastReadAt })}\n\n`),
+        typing: (e) =>
+          enqueue(
+            `event: typing\ndata: ${JSON.stringify({
+              userId: e.userId,
+              userName: e.userName,
+              isTyping: e.isTyping,
+            })}\n\n`
+          ),
+        presence: (e) =>
+          enqueue(
+            `event: presence\ndata: ${JSON.stringify({
+              userId: e.userId,
+              userName: e.userName,
+              lastSeenAt: e.lastSeenAt,
+            })}\n\n`
+          ),
       });
 
       // Heartbeat — keeps proxies (ngrok, Vercel, nginx) from killing the

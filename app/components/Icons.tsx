@@ -183,6 +183,60 @@ export function Flame(p: Props) {
   );
 }
 
+export function Image(p: Props) {
+  return (
+    <svg {...baseProps} {...p}>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="9" cy="9" r="2" />
+      <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+    </svg>
+  );
+}
+
+export function MapPin(p: Props) {
+  return (
+    <svg {...baseProps} {...p}>
+      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
+  );
+}
+
+export function CalendarDays(p: Props) {
+  return (
+    <svg {...baseProps} {...p}>
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+      <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" />
+    </svg>
+  );
+}
+
+export function Grid(p: Props) {
+  return (
+    <svg {...baseProps} {...p}>
+      <rect x="3" y="3" width="7" height="7" />
+      <rect x="14" y="3" width="7" height="7" />
+      <rect x="14" y="14" width="7" height="7" />
+      <rect x="3" y="14" width="7" height="7" />
+    </svg>
+  );
+}
+
+export function ImagePlus(p: Props) {
+  return (
+    <svg {...baseProps} {...p}>
+      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7" />
+      <circle cx="9" cy="9" r="2" />
+      <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+      <path d="M16 5h6" />
+      <path d="M19 2v6" />
+    </svg>
+  );
+}
+
 export function MessageCircle(p: Props) {
   return (
     <svg {...baseProps} {...p}>

@@ -6,18 +6,26 @@
   color-scheme: dark;
 }
 
-html, body {
+html {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
-  /* Prevent any element from forcing horizontal scroll on mobile. */
-  max-width: 100%;
-  overflow-x: hidden;
-  /* Disable iOS double-tap zoom while still allowing native form interactions. */
-  touch-action: manipulation;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+}
+
+/* Horizontal-overflow guard sits on body only — putting it on <html> breaks
+ * desktop trackpad/wheel scrolling in Chrome and Firefox by forcing <body>
+ * to be the scroll container with non-default overflow. */
+body {
+  background: var(--background);
+  color: var(--foreground);
+  max-width: 100%;
+  overflow-x: clip; /* `clip` clips without creating a scroll container */
+  /* `manipulation` disables iOS double-tap zoom but preserves panning and
+   * mouse-wheel scrolling. Scoped to body so root keeps default behavior. */
+  touch-action: manipulation;
 }
 
 /* iOS Safari sometimes ignores `user-scalable=no` for accessibility and
