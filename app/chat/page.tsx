@@ -325,22 +325,52 @@ export default function ChatPage() {
   useEffect(() => {
     if (!loaded || initialScrollDoneRef.current || messages.length === 0) return;
     initialScrollDoneRef.current = true;
+    autoStickRef.current = true;
     requestAnimationFrame(() => requestAnimationFrame(() => scrollToBottom(false)));
+
+    // Settle window: media (images, sticker pngs, audio metadata) decodes
+    // asynchronously after the first render and grows the list. Re-snap to
+    // the real bottom for ~2s while things finish loading. We bail early
+    // the moment the user intentionally scrolls up.
+    const start = Date.now();
+    const id = window.setInterval(() => {
+      if (!autoStickRef.current || Date.now() - start > 2000) {
+        window.clearInterval(id);
+        return;
+      }
+      scrollToBottom(false);
+    }, 120);
+    return () => window.clearInterval(id);
   }, [loaded, messages.length, scrollToBottom]);
 
-  // Keep the view pinned to the bottom while async content (images, audio,
-  // stickers) finishes loading after the initial render. Without this, the
-  // initial scrollToBottom fires before media loads and the list then grows
-  // downward, leaving the user parked above the latest message.
+  // Keep the view pinned to the bottom while content size changes
+  // (images decoding in, typing indicator appearing, reply preview, etc.).
   useEffect(() => {
     if (!loaded) return;
     const content = contentRef.current;
-    if (!content || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => {
+    const list = listRef.current;
+    if (!content || !list) return;
+
+    const stick = () => {
       if (autoStickRef.current) scrollToBottom(false);
-    });
-    ro.observe(content);
-    return () => ro.disconnect();
+    };
+
+    // ResizeObserver covers anything that changes the content's height.
+    let ro: ResizeObserver | undefined;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(stick);
+      ro.observe(content);
+    }
+
+    // <img>/<audio>/<video> load events don't bubble, so we listen in
+    // capture phase. This catches media that was already in-flight when
+    // the ResizeObserver subscribed.
+    list.addEventListener("load", stick, true);
+
+    return () => {
+      ro?.disconnect();
+      list.removeEventListener("load", stick, true);
+    };
   }, [loaded, scrollToBottom]);
 
   // ── Presence load + heartbeat ────────────────────────────────────
