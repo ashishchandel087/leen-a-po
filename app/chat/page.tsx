@@ -242,6 +242,7 @@ export default function ChatPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const myIdRef = useRef<string | undefined>(undefined);
   const messagesRef = useRef<Message[]>([]);
@@ -326,6 +327,21 @@ export default function ChatPage() {
     initialScrollDoneRef.current = true;
     requestAnimationFrame(() => requestAnimationFrame(() => scrollToBottom(false)));
   }, [loaded, messages.length, scrollToBottom]);
+
+  // Keep the view pinned to the bottom while async content (images, audio,
+  // stickers) finishes loading after the initial render. Without this, the
+  // initial scrollToBottom fires before media loads and the list then grows
+  // downward, leaving the user parked above the latest message.
+  useEffect(() => {
+    if (!loaded) return;
+    const content = contentRef.current;
+    if (!content || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      if (autoStickRef.current) scrollToBottom(false);
+    });
+    ro.observe(content);
+    return () => ro.disconnect();
+  }, [loaded, scrollToBottom]);
 
   // ── Presence load + heartbeat ────────────────────────────────────
   useEffect(() => {
@@ -884,7 +900,7 @@ export default function ChatPage() {
         className="relative flex-1 overflow-y-auto overscroll-contain px-3 sm:px-4 pt-4"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}
       >
-        <div className="max-w-2xl mx-auto flex flex-col gap-2 min-h-full">
+        <div ref={contentRef} className="max-w-2xl mx-auto flex flex-col gap-2 min-h-full">
           <div className="flex-1" aria-hidden />
 
           {!loaded && (
