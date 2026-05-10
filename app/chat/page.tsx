@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import AppHeader from "../components/AppHeader";
 import LoadingScreen from "../components/LoadingScreen";
 import { useToast } from "../components/Toast";
-import { Send, Heart, ImagePlus, X, Sparkles } from "../components/Icons";
+import { Send, Heart, X, Sparkles, Camera, Mic } from "../components/Icons";
 import { motion, AnimatePresence, chatBubble, tapPress } from "../components/motion";
 import StickerPicker from "../components/StickerPicker";
 import StickerMedia from "../components/StickerMedia";
@@ -1279,7 +1279,7 @@ export default function ChatPage() {
           )}
         </AnimatePresence>
 
-        <div className="max-w-2xl mx-auto px-2 sm:px-3 py-3 flex items-end gap-1.5 sm:gap-2">
+        <div className="max-w-2xl mx-auto px-2 sm:px-3 py-3">
           <input
             ref={fileInputRef}
             type="file"
@@ -1293,77 +1293,83 @@ export default function ChatPage() {
             aria-hidden
           />
 
-          <motion.button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={attachments.length >= MAX_ATTACHMENTS || voiceOpen}
-            aria-label="Attach images"
-            whileTap={tapPress}
-            className="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 shrink-0 rounded-full bg-white/[0.06] hover:bg-white/[0.10] active:bg-white/[0.12] disabled:opacity-40 disabled:cursor-not-allowed text-white/75 hover:text-rose-300 cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
-          >
-            <ImagePlus className="w-5 h-5" aria-hidden />
-          </motion.button>
+          {(() => {
+            const canSend = (text.trim().length > 0 || attachments.some((a) => a.status === "done")) && !sending;
+            return (
+              <div className="flex items-end gap-1 bg-white/[0.05] border border-white/10 rounded-[28px] pl-1.5 pr-1.5 py-1.5 focus-within:border-rose-400/50 focus-within:bg-white/[0.07] transition-colors">
+                <motion.button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={attachments.length >= MAX_ATTACHMENTS || voiceOpen}
+                  aria-label="Attach images"
+                  whileTap={tapPress}
+                  className="flex items-center justify-center w-10 h-10 shrink-0 self-end rounded-full bg-rose-200/95 hover:bg-rose-100 active:bg-rose-200 disabled:opacity-40 disabled:cursor-not-allowed text-rose-950 cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+                >
+                  <Camera className="w-5 h-5" aria-hidden />
+                </motion.button>
 
-          <motion.button
-            type="button"
-            data-sticker-trigger
-            onClick={() => setStickerPickerOpen((v) => !v)}
-            disabled={voiceOpen}
-            aria-label="Open stickers"
-            aria-expanded={stickerPickerOpen}
-            whileTap={tapPress}
-            className={`flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 shrink-0 rounded-full transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 disabled:opacity-40 disabled:cursor-not-allowed ${
-              stickerPickerOpen ? "bg-rose-500/25 text-rose-200" : "bg-white/[0.06] hover:bg-white/[0.10] text-white/75 hover:text-rose-300"
-            }`}
-          >
-            <Sparkles className="w-5 h-5" aria-hidden />
-          </motion.button>
+                <label htmlFor="chat-input" className="sr-only">Message</label>
+                <textarea
+                  id="chat-input"
+                  ref={textareaRef}
+                  rows={1}
+                  value={text}
+                  onChange={(e) => onTextChange(e.target.value)}
+                  onKeyDown={onKeyDown}
+                  placeholder={
+                    replyTo ? `Reply to ${replyTo.sender.name}...` : attachments.length ? "Add a caption..." : "Message..."
+                  }
+                  className="flex-1 min-w-0 resize-none self-center bg-transparent border-0 px-2.5 py-2 text-base sm:text-[15px] leading-6 text-white placeholder-white/50 focus:outline-none max-h-40"
+                />
 
-          <motion.button
-            type="button"
-            onClick={() => setVoiceOpen(true)}
-            disabled={voiceOpen}
-            aria-label="Record voice note"
-            whileTap={tapPress}
-            className="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 shrink-0 rounded-full bg-white/[0.06] hover:bg-white/[0.10] active:bg-white/[0.12] disabled:opacity-40 disabled:cursor-not-allowed text-white/75 hover:text-rose-300 cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" aria-hidden>
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-              <line x1="12" y1="19" x2="12" y2="23" />
-              <line x1="8" y1="23" x2="16" y2="23" />
-            </svg>
-          </motion.button>
+                <motion.button
+                  type="button"
+                  onClick={() => setVoiceOpen(true)}
+                  disabled={voiceOpen}
+                  aria-label="Record voice note"
+                  whileTap={tapPress}
+                  className="flex items-center justify-center w-9 h-9 shrink-0 self-end rounded-full text-white/75 hover:text-rose-300 hover:bg-white/[0.06] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+                >
+                  <Mic className="w-5 h-5" aria-hidden />
+                </motion.button>
 
-          <label htmlFor="chat-input" className="sr-only">Message</label>
-          <textarea
-            id="chat-input"
-            ref={textareaRef}
-            rows={1}
-            value={text}
-            onChange={(e) => onTextChange(e.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder={
-              replyTo ? `Reply to ${replyTo.sender.name}...` : attachments.length ? "Add a caption..." : "Say something sweet..."
-            }
-            className="flex-1 min-w-0 resize-none bg-white/[0.06] border border-white/10 rounded-2xl px-3.5 py-3 text-base sm:text-sm text-white placeholder-white/45 focus:outline-none focus:border-rose-400 focus:bg-white/[0.09] transition-colors max-h-40"
-          />
+                <motion.button
+                  type="button"
+                  data-sticker-trigger
+                  onClick={() => setStickerPickerOpen((v) => !v)}
+                  disabled={voiceOpen}
+                  aria-label="Open stickers"
+                  aria-expanded={stickerPickerOpen}
+                  whileTap={tapPress}
+                  className={`flex items-center justify-center w-9 h-9 shrink-0 self-end rounded-full transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 disabled:opacity-40 disabled:cursor-not-allowed ${
+                    stickerPickerOpen ? "bg-rose-500/25 text-rose-200" : "text-white/75 hover:text-rose-300 hover:bg-white/[0.06]"
+                  }`}
+                >
+                  <Sparkles className="w-5 h-5" aria-hidden />
+                </motion.button>
 
-          <motion.button
-            type="button"
-            onClick={send}
-            disabled={(!text.trim() && attachments.filter((a) => a.status === "done").length === 0) || sending}
-            aria-label="Send message"
-            whileTap={tapPress}
-            whileHover={{ scale: 1.04 }}
-            className="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 shrink-0 rounded-full bg-gradient-to-br from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 disabled:opacity-40 disabled:cursor-not-allowed text-white cursor-pointer shadow-lg shadow-rose-700/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
-          >
-            {sending ? (
-              <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-orbit" aria-hidden />
-            ) : (
-              <Send className="w-5 h-5 -ml-0.5" aria-hidden />
-            )}
-          </motion.button>
+                <motion.button
+                  type="button"
+                  onClick={send}
+                  disabled={!canSend}
+                  aria-label="Send message"
+                  whileTap={tapPress}
+                  whileHover={canSend ? { scale: 1.04 } : undefined}
+                  className={`flex items-center justify-center w-10 h-10 shrink-0 self-end rounded-full transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 ${
+                    canSend
+                      ? "bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-md shadow-rose-700/30"
+                      : "text-white/55 hover:text-rose-300 hover:bg-white/[0.06] disabled:cursor-not-allowed"
+                  }`}
+                >
+                  {sending ? (
+                    <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-orbit" aria-hidden />
+                  ) : (
+                    <Send className="w-[18px] h-[18px] -ml-0.5" aria-hidden />
+                  )}
+                </motion.button>
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>
