@@ -22,17 +22,19 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { mood, note } = await req.json();
-  if (!mood) return NextResponse.json({ error: "Mood required" }, { status: 400 });
+  const { mood, note } = await req.json().catch(() => ({}));
+  const cleanMood = typeof mood === "string" ? mood.trim().slice(0, 50) : "";
+  if (!cleanMood) return NextResponse.json({ error: "Mood required" }, { status: 400 });
+  const cleanNote = typeof note === "string" && note.trim() ? note.trim().slice(0, 500) : null;
 
   const log = await prisma.moodLog.create({
-    data: { mood, note, userId: session.user.id },
+    data: { mood: cleanMood, note: cleanNote, userId: session.user.id },
     include: { user: { select: { name: true } } },
   });
 
   // Notify the partner — fire-and-forget, never block the response.
-  const moodPreview = String(mood).trim();
-  const notePreview = note ? ` — ${String(note).trim()}` : "";
+  const moodPreview = cleanMood;
+  const notePreview = cleanNote ? ` — ${cleanNote}` : "";
   const fullBody = `feeling ${moodPreview}${notePreview}`;
   sendPushToOthers(session.user.id, {
     title: `💭 ${session.user.name}`,

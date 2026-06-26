@@ -27,6 +27,13 @@ const s3 = new S3Client({
   },
 });
 
+// Extra origins can be added without editing this file, e.g.:
+//   R2_CORS_ORIGINS="http://192.168.1.8:3000,https://abcd.ngrok-free.app"
+const extraOrigins = (process.env.R2_CORS_ORIGINS || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 const policy = {
   Bucket: R2_BUCKET,
   CORSConfiguration: {
@@ -36,6 +43,11 @@ const policy = {
           "https://leen-a-po.vercel.app",
           "http://localhost:3000",
           "http://192.168.1.5:3000",
+          // ngrok tunnels rotate per session — wildcard so we don't re-run this
+          // every time the dev tunnel URL changes.
+          "https://*.ngrok-free.app",
+          "https://*.ngrok.app",
+          ...extraOrigins,
         ],
         AllowedMethods: ["GET", "PUT"],
         AllowedHeaders: ["*"],

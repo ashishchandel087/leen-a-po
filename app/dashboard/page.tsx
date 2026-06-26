@@ -8,6 +8,7 @@ import dynamic from "next/dynamic";
 import { Theme, EmojiStyle, type EmojiClickData } from "emoji-picker-react";
 import AppHeader from "../components/AppHeader";
 import LoadingScreen from "../components/LoadingScreen";
+import ThemeSwitcher from "../components/ThemeSwitcher";
 import { useToast } from "../components/Toast";
 import { Plus, Trash, Sparkles, Send, Heart, Calendar, X } from "../components/Icons";
 import { motion, AnimatePresence, listItem, tapPress } from "../components/motion";
@@ -990,6 +991,9 @@ export default function Dashboard() {
             Enable notifications to ping each other
           </button>
         )}
+
+        {/* Theme picker — sits at the very end of the dashboard */}
+        <ThemeSwitcher />
 
       </div>
     </div>

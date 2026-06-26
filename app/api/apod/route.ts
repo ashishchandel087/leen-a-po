@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
-const NASA_API_KEY = "QDR3SPu7cWhusxn4bQTerT5Zb1ZAY5xXZp4Ydjhg";
+// NASA APOD key. Set NASA_API_KEY in env; falls back to the shared DEMO_KEY
+// (heavily rate-limited) so the route still works in local dev without config.
+const NASA_API_KEY = process.env.NASA_API_KEY || "DEMO_KEY";
 
 export async function GET() {
   try {

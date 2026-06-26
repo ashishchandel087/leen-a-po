@@ -28,7 +28,8 @@ export type BusEvent =
   | { type: "reaction"; messageId: string; userId: string; userName: string; emoji: string; action: "add" | "remove" }
   | { type: "read"; userId: string; lastReadAt: string }
   | { type: "typing"; userId: string; userName: string; isTyping: boolean }
-  | { type: "presence"; userId: string; userName: string; lastSeenAt: string };
+  | { type: "presence"; userId: string; userName: string; lastSeenAt: string }
+  | { type: "wallpaper"; preset: string; imageUrl: string | null };
 
 type GlobalState = {
   chatBus?: EventEmitter;
@@ -145,6 +146,9 @@ export function publishTyping(args: { userId: string; userName: string; isTyping
 export function publishPresence(args: { userId: string; userName: string; lastSeenAt: string }) {
   void broadcast({ type: "presence", ...args });
 }
+export function publishWallpaper(args: { preset: string; imageUrl: string | null }) {
+  void broadcast({ type: "wallpaper", ...args });
+}
 
 // ── Subscribers ──────────────────────────────────────────────────────
 type Handlers = {
@@ -154,6 +158,7 @@ type Handlers = {
   read?: (e: BusEvent & { type: "read" }) => void;
   typing?: (e: BusEvent & { type: "typing" }) => void;
   presence?: (e: BusEvent & { type: "presence" }) => void;
+  wallpaper?: (e: BusEvent & { type: "wallpaper" }) => void;
 };
 
 export function subscribe(on: Handlers) {

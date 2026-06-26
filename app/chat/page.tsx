@@ -14,6 +14,14 @@ import MessageActions from "../components/MessageActions";
 import MediaLinkEmbed, { detectMediaLink } from "../components/MediaLinkEmbed";
 import VoiceRecorder from "../components/VoiceRecorder";
 import AudioBubble from "../components/AudioBubble";
+import ChatWallpaperPicker from "../components/ChatWallpaperPicker";
+import {
+  DEFAULT_WALLPAPER,
+  isWallpaperId,
+  wallpaperClass,
+  type ResolvedWallpaper,
+  type WallpaperId,
+} from "@/lib/wallpapers";
 
 // ── Types ────────────────────────────────────────────────────────────
 interface Reaction {
@@ -239,6 +247,11 @@ export default function ChatPage() {
   const [presence, setPresence] = useState<Map<string, Presence>>(new Map());
   const [typing, setTyping] = useState<{ userId: string; userName: string; until: number } | null>(null);
   const [now, setNow] = useState(Date.now()); // re-render every minute for "X min ago"
+  const [wallpaper, setWallpaper] = useState<WallpaperId>(DEFAULT_WALLPAPER);
+  const [wallpaperImage, setWallpaperImage] = useState<string | null>(null);
+  const [wallpaperUploading, setWallpaperUploading] = useState(false);
+
+  const isAdmin = session?.user?.role === "admin";
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -272,6 +285,73 @@ export default function ChatPage() {
     const t = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(t);
   }, []);
+
+  // Apply a resolved wallpaper (preset class or signed image URL) to state.
+  const applyWallpaper = useCallback((w: ResolvedWallpaper) => {
+    setWallpaper(isWallpaperId(w.preset) ? w.preset : DEFAULT_WALLPAPER);
+    setWallpaperImage(w.imageUrl ?? null);
+  }, []);
+
+  // Load the shared chat wallpaper (admin-set, applies for everyone).
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    let alive = true;
+    fetch("/api/chat/wallpaper")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: ResolvedWallpaper | null) => {
+        if (alive && data) applyWallpaper(data);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [status, applyWallpaper]);
+
+  // Admin-only: persist a preset (server enforces admin + broadcasts live).
+  const changeWallpaper = useCallback(
+    async (id: WallpaperId) => {
+      const prev: ResolvedWallpaper = { preset: wallpaper, imageUrl: wallpaperImage };
+      applyWallpaper({ preset: id, imageUrl: null }); // optimistic
+      try {
+        const res = await fetch("/api/chat/wallpaper", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ value: id }),
+        });
+        if (!res.ok) throw new Error();
+        applyWallpaper(await res.json());
+        toast.show("Wallpaper updated 🖼️", "success");
+      } catch {
+        applyWallpaper(prev); // revert on failure
+        toast.show("Couldn't update wallpaper", "error");
+      }
+    },
+    [wallpaper, wallpaperImage, applyWallpaper, toast]
+  );
+
+  // Admin-only: upload a custom photo, then set it as the wallpaper.
+  const uploadWallpaper = useCallback(
+    async (file: File) => {
+      setWallpaperUploading(true);
+      try {
+        // Same-origin upload — the server proxies the bytes to R2, so there's
+        // no browser→R2 request and no R2 CORS to satisfy.
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch("/api/chat/wallpaper", { method: "POST", body: fd });
+        if (!res.ok) {
+          throw new Error((await res.json().catch(() => ({})))?.error || "Couldn't upload wallpaper");
+        }
+        applyWallpaper(await res.json());
+        toast.show("Wallpaper updated 🖼️", "success");
+      } catch (err) {
+        toast.show(err instanceof Error && err.message ? err.message : "Couldn't upload wallpaper", "error");
+      } finally {
+        setWallpaperUploading(false);
+      }
+    },
+    [applyWallpaper, toast]
+  );
 
   // Auto-grow textarea
   useEffect(() => {
@@ -459,11 +539,19 @@ export default function ChatPage() {
       } catch {/* ignore */}
     });
 
+    // Live wallpaper sync — when the admin changes it, everyone's chat updates.
+    es.addEventListener("wallpaper", (e) => {
+      try {
+        const data = JSON.parse((e as MessageEvent).data) as ResolvedWallpaper;
+        applyWallpaper(data);
+      } catch {/* ignore */}
+    });
+
     return () => {
       es.close();
       setConnected(false);
     };
-  }, [status, loaded, scrollToBottom]);
+  }, [status, loaded, scrollToBottom, applyWallpaper]);
 
   // Auto-clear typing indicator when its TTL passes
   useEffect(() => {
@@ -873,9 +961,38 @@ export default function ChatPage() {
     actionMessage?.reactions?.filter((r) => r.userId === myId).map((r) => r.emoji) ?? [];
 
   return (
-    <div className="h-[100dvh] bg-[#0a0305] text-white relative flex flex-col overflow-hidden">
-      <div className="aurora" aria-hidden />
-      <AppHeader variant="page" title="Chat 💬" subtitle={subtitle} />
+    <div
+      className={`h-[100dvh] bg-[#0a0305] text-white relative flex flex-col overflow-hidden ${
+        wallpaperImage ? "" : wallpaperClass(wallpaper)
+      }`}
+      style={
+        wallpaperImage
+          ? {
+              // Dark scrim composited over the photo keeps bubbles/text readable.
+              backgroundImage: `linear-gradient(rgba(10,3,5,0.55), rgba(10,3,5,0.55)), url("${wallpaperImage}")`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }
+          : undefined
+      }
+    >
+      {wallpaper === "default" && !wallpaperImage && <div className="aurora" aria-hidden />}
+      <AppHeader
+        variant="page"
+        title="Chat 💬"
+        subtitle={subtitle}
+        actions={
+          isAdmin ? (
+            <ChatWallpaperPicker
+              preset={wallpaper}
+              imageUrl={wallpaperImage}
+              uploading={wallpaperUploading}
+              onSelectPreset={changeWallpaper}
+              onUploadImage={uploadWallpaper}
+            />
+          ) : undefined
+        }
+      />
 
       {/* Messages list */}
       <div
@@ -924,7 +1041,7 @@ export default function ChatPage() {
           )}
 
           {grouped.map((group) => (
-            <div key={group.key} className="flex flex-col gap-1.5">
+            <div key={group.key} className="flex flex-col gap-1.5 cv-auto">
               <div className="sticky top-0 z-10 self-center px-3 py-1 my-1 rounded-full bg-[#0a0305]/80 backdrop-blur border border-white/10 text-[11px] text-white/60 uppercase tracking-wider">
                 {group.label}
               </div>

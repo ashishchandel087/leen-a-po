@@ -61,6 +61,13 @@ export async function GET(req: NextRequest) {
               lastSeenAt: e.lastSeenAt,
             })}\n\n`
           ),
+        wallpaper: (e) =>
+          enqueue(
+            `event: wallpaper\ndata: ${JSON.stringify({
+              preset: e.preset,
+              imageUrl: e.imageUrl,
+            })}\n\n`
+          ),
       });
 
       // Heartbeat — keeps proxies (ngrok, Vercel, nginx) from killing the

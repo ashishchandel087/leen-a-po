@@ -48,11 +48,59 @@ input[type="date"], input[type="time"], input[type="datetime-local"], select {
   color-scheme: dark;
 }
 
-/* Custom scrollbar — matches cosmic theme */
+/* Custom scrollbar — follows the active accent */
 *::-webkit-scrollbar { width: 8px; height: 8px; }
 *::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb { background: rgba(244,114,182,.15); border-radius: 999px; }
-*::-webkit-scrollbar-thumb:hover { background: rgba(244,114,182,.3); }
+*::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--color-rose-500) 22%, transparent); border-radius: 999px; }
+*::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--color-rose-500) 42%, transparent); }
+
+/* ── Themes ────────────────────────────────────────────────────────────
+   The whole UI accent is built from Tailwind `rose-*` / `pink-*` utilities
+   (~190 usages). In Tailwind v4 those utilities resolve to `var(--color-…)`,
+   so remapping the rose + pink scales per theme recolours the entire app with
+   no component changes. These rules are unlayered, so they win over Tailwind's
+   @theme defaults regardless of specificity. `rose` is the default — no block.
+
+   Each theme maps:  rose → primary hue,  pink → secondary hue. */
+
+/* Ocean — blue + sky */
+html[data-theme="ocean"] {
+  --color-rose-50:#eff6ff; --color-rose-100:#dbeafe; --color-rose-200:#bfdbfe; --color-rose-300:#93c5fd; --color-rose-400:#60a5fa; --color-rose-500:#3b82f6; --color-rose-600:#2563eb; --color-rose-700:#1d4ed8; --color-rose-800:#1e40af; --color-rose-900:#1e3a8a; --color-rose-950:#172554;
+  --color-pink-50:#f0f9ff; --color-pink-100:#e0f2fe; --color-pink-200:#bae6fd; --color-pink-300:#7dd3fc; --color-pink-400:#38bdf8; --color-pink-500:#0ea5e9; --color-pink-600:#0284c7; --color-pink-700:#0369a1; --color-pink-800:#075985; --color-pink-900:#0c4a6e; --color-pink-950:#082f49;
+}
+
+/* Emerald — emerald + teal */
+html[data-theme="emerald"] {
+  --color-rose-50:#ecfdf5; --color-rose-100:#d1fae5; --color-rose-200:#a7f3d0; --color-rose-300:#6ee7b7; --color-rose-400:#34d399; --color-rose-500:#10b981; --color-rose-600:#059669; --color-rose-700:#047857; --color-rose-800:#065f46; --color-rose-900:#064e3b; --color-rose-950:#022c22;
+  --color-pink-50:#f0fdfa; --color-pink-100:#ccfbf1; --color-pink-200:#99f6e4; --color-pink-300:#5eead4; --color-pink-400:#2dd4bf; --color-pink-500:#14b8a6; --color-pink-600:#0d9488; --color-pink-700:#0f766e; --color-pink-800:#115e59; --color-pink-900:#134e4a; --color-pink-950:#042f2e;
+}
+
+/* Violet — violet + fuchsia */
+html[data-theme="violet"] {
+  --color-rose-50:#f5f3ff; --color-rose-100:#ede9fe; --color-rose-200:#ddd6fe; --color-rose-300:#c4b5fd; --color-rose-400:#a78bfa; --color-rose-500:#8b5cf6; --color-rose-600:#7c3aed; --color-rose-700:#6d28d9; --color-rose-800:#5b21b6; --color-rose-900:#4c1d95; --color-rose-950:#2e1065;
+  --color-pink-50:#fdf4ff; --color-pink-100:#fae8ff; --color-pink-200:#f5d0fe; --color-pink-300:#f0abfc; --color-pink-400:#e879f9; --color-pink-500:#d946ef; --color-pink-600:#c026d3; --color-pink-700:#a21caf; --color-pink-800:#86198f; --color-pink-900:#701a75; --color-pink-950:#4a044e;
+}
+
+/* Sunset — orange + amber */
+html[data-theme="sunset"] {
+  --color-rose-50:#fff7ed; --color-rose-100:#ffedd5; --color-rose-200:#fed7aa; --color-rose-300:#fdba74; --color-rose-400:#fb923c; --color-rose-500:#f97316; --color-rose-600:#ea580c; --color-rose-700:#c2410c; --color-rose-800:#9a3412; --color-rose-900:#7c2d12; --color-rose-950:#431407;
+  --color-pink-50:#fffbeb; --color-pink-100:#fef3c7; --color-pink-200:#fde68a; --color-pink-300:#fcd34d; --color-pink-400:#fbbf24; --color-pink-500:#f59e0b; --color-pink-600:#d97706; --color-pink-700:#b45309; --color-pink-800:#92400e; --color-pink-900:#78350f; --color-pink-950:#451a03;
+}
+
+/* Mono — slate + zinc (minimal, neutral accent) */
+html[data-theme="slate"] {
+  --color-rose-50:#f8fafc; --color-rose-100:#f1f5f9; --color-rose-200:#e2e8f0; --color-rose-300:#cbd5e1; --color-rose-400:#94a3b8; --color-rose-500:#64748b; --color-rose-600:#475569; --color-rose-700:#334155; --color-rose-800:#1e293b; --color-rose-900:#0f172a; --color-rose-950:#020617;
+  --color-pink-50:#fafafa; --color-pink-100:#f4f4f5; --color-pink-200:#e4e4e7; --color-pink-300:#d4d4d8; --color-pink-400:#a1a1aa; --color-pink-500:#71717a; --color-pink-600:#52525b; --color-pink-700:#3f3f46; --color-pink-800:#27272a; --color-pink-900:#18181b; --color-pink-950:#09090b;
+}
+
+/* Skip layout/paint for off-screen blocks (native virtualization). Used on
+   chat message groups so a long history doesn't keep every bubble live in the
+   DOM on mobile. `auto` lets the browser remember each block's real size after
+   first render, so the intrinsic-size hint only matters before that. */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 400px;
+}
 
 /* ── Animations ───────────────────────────────────────────────────── */
 
@@ -169,6 +217,42 @@ input[type="date"], input[type="time"], input[type="datetime-local"], select {
     rgba(255,255,255,.04) 75%);
   background-size: 1000px 100%;
   animation: shimmer 1.6s infinite linear;
+}
+
+/* ── Chat wallpapers (admin-selectable) ────────────────────────────────
+   Applied to the chat root over its dark base. Kept low-opacity so message
+   bubbles and text stay readable. "default" uses the .aurora layer instead. */
+.chat-wp-violet {
+  background-image:
+    radial-gradient(60vmax 60vmax at 15% -10%, rgba(124,58,237,.28), transparent 60%),
+    radial-gradient(55vmax 55vmax at 100% 110%, rgba(76,29,149,.32), transparent 60%);
+}
+.chat-wp-ocean {
+  background-color: #050a12;
+  background-image:
+    radial-gradient(60vmax 60vmax at 10% 0%, rgba(14,165,233,.22), transparent 60%),
+    radial-gradient(55vmax 55vmax at 100% 100%, rgba(13,148,136,.22), transparent 60%);
+}
+.chat-wp-ember {
+  background-image:
+    radial-gradient(60vmax 55vmax at 50% -15%, rgba(249,115,22,.20), transparent 60%),
+    radial-gradient(55vmax 55vmax at 100% 120%, rgba(190,18,60,.24), transparent 60%);
+}
+.chat-wp-forest {
+  background-color: #04100a;
+  background-image:
+    radial-gradient(60vmax 60vmax at 0% 0%, rgba(16,185,129,.18), transparent 60%),
+    radial-gradient(55vmax 55vmax at 100% 100%, rgba(5,150,105,.22), transparent 60%);
+}
+.chat-wp-starry {
+  background-image:
+    radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,.55), transparent),
+    radial-gradient(1px 1px at 70% 60%, rgba(255,255,255,.40), transparent),
+    radial-gradient(1.5px 1.5px at 40% 80%, rgba(255,255,255,.45), transparent),
+    radial-gradient(1px 1px at 85% 20%, rgba(255,255,255,.35), transparent),
+    radial-gradient(1px 1px at 10% 72%, rgba(255,255,255,.40), transparent),
+    radial-gradient(1.5px 1.5px at 55% 15%, rgba(255,255,255,.30), transparent);
+  background-size: 320px 320px;
 }
 
 /* Aurora background — subtle moving gradient blobs */

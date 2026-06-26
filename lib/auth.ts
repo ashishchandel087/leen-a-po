@@ -7,6 +7,36 @@ import bcrypt from "bcryptjs";
 // actually stores them. In production over HTTPS, NextAuth's defaults are correct.
 const isProd = process.env.NODE_ENV === "production";
 
+// Best-effort login throttle. Keyed by email, kept in-process (and on
+// globalThis so it survives dev hot-reloads). On a multi-instance serverless
+// deployment each instance tracks independently — imperfect, but it still
+// blunts credential-stuffing against this tiny two-account app.
+const MAX_ATTEMPTS = 8;
+const LOCKOUT_MS = 15 * 60_000; // 15 minutes
+type Attempt = { count: number; firstAt: number };
+const g = globalThis as unknown as { loginAttempts?: Map<string, Attempt> };
+const attempts: Map<string, Attempt> = g.loginAttempts ?? new Map();
+if (!g.loginAttempts) g.loginAttempts = attempts;
+
+function isLockedOut(key: string): boolean {
+  const a = attempts.get(key);
+  if (!a) return false;
+  if (Date.now() - a.firstAt > LOCKOUT_MS) {
+    attempts.delete(key); // window expired — reset
+    return false;
+  }
+  return a.count >= MAX_ATTEMPTS;
+}
+
+function recordFailure(key: string) {
+  const a = attempts.get(key);
+  if (!a || Date.now() - a.firstAt > LOCKOUT_MS) {
+    attempts.set(key, { count: 1, firstAt: Date.now() });
+  } else {
+    a.count += 1;
+  }
+}
+
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
@@ -34,15 +64,27 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
+        const key = credentials.email.toLowerCase();
+        if (isLockedOut(key)) {
+          throw new Error("Too many attempts. Try again later.");
+        }
+
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
         });
 
-        if (!user) return null;
+        if (!user) {
+          recordFailure(key);
+          return null;
+        }
 
         const valid = await bcrypt.compare(credentials.password, user.password);
-        if (!valid) return null;
+        if (!valid) {
+          recordFailure(key);
+          return null;
+        }
 
+        attempts.delete(key); // success — clear the counter
         return { id: user.id, email: user.email, name: user.name, role: user.role };
       },
     }),

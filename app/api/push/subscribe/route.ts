@@ -7,8 +7,17 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { endpoint, keys } = await req.json();
-  const { p256dh, auth } = keys;
+  const body = await req.json().catch(() => null);
+  const endpoint = body?.endpoint;
+  const p256dh = body?.keys?.p256dh;
+  const auth = body?.keys?.auth;
+  if (
+    typeof endpoint !== "string" || !endpoint ||
+    typeof p256dh !== "string" || !p256dh ||
+    typeof auth !== "string" || !auth
+  ) {
+    return NextResponse.json({ error: "Invalid subscription" }, { status: 400 });
+  }
 
   await prisma.pushSubscription.upsert({
     where: { endpoint },
@@ -23,7 +32,10 @@ export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { endpoint } = await req.json();
+  const endpoint = (await req.json().catch(() => ({})))?.endpoint;
+  if (typeof endpoint !== "string" || !endpoint) {
+    return NextResponse.json({ error: "endpoint required" }, { status: 400 });
+  }
   await prisma.pushSubscription.deleteMany({ where: { endpoint } });
   return NextResponse.json({ success: true });
 }

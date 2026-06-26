@@ -54,9 +54,24 @@ export default function NeptunePage() {
     const mount = mountRef.current;
     if (!mount) return;
 
-    let animId: number;
-    let rendererRef: import("three").WebGLRenderer | null = null;
+    // Lighter scene on phones: fewer pixels, fewer polygons, no MSAA. Keeps
+    // memory/GPU load down and avoids exhausting the WebGL context budget.
+    const isMobile = window.matchMedia("(max-width: 768px)").matches;
+    const PIXEL_CAP = isMobile ? 1.5 : 2;
+    const PLANET_SEG = isMobile ? 48 : 64;
+    const STAR_COUNT = isMobile ? 1500 : 3000;
+
+    let animId = 0;
     let alive = true;
+    // Hoisted so the cleanup function can fully tear everything down.
+    let renderer: import("three").WebGLRenderer | null = null;
+    let scene: import("three").Scene | null = null;
+    let controls: { update: () => void; dispose: () => void } | null = null;
+    let idleTimer: ReturnType<typeof setTimeout> | undefined;
+    let onResize: (() => void) | null = null;
+    let onDown: (() => void) | null = null;
+    let onUp: (() => void) | null = null;
+    let canvas: HTMLCanvasElement | null = null;
 
     (async () => {
       const THREE = await import("three");
@@ -64,7 +79,7 @@ export default function NeptunePage() {
       if (!alive || !mount) return;
 
       /* ── Scene ── */
-      const scene = new THREE.Scene();
+      scene = new THREE.Scene();
       scene.background = new THREE.Color(0x0a0305);
 
       /* ── Camera ── */
@@ -74,18 +89,20 @@ export default function NeptunePage() {
       camera.position.z = 3.8;
 
       /* ── Renderer ── */
-      const renderer = new THREE.WebGLRenderer({ antialias: true });
-      rendererRef = renderer;
-      renderer.setSize(W, H);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      mount.appendChild(renderer.domElement);
+      renderer = new THREE.WebGLRenderer({ antialias: !isMobile });
+      const r = renderer;
+      const s = scene;
+      r.setSize(W, H);
+      r.setPixelRatio(Math.min(window.devicePixelRatio, PIXEL_CAP));
+      canvas = r.domElement;
+      mount.appendChild(r.domElement);
 
       /* ── Stars ── */
-      const starVerts = new Float32Array(3000 * 3);
+      const starVerts = new Float32Array(STAR_COUNT * 3);
       for (let i = 0; i < starVerts.length; i++) starVerts[i] = (Math.random() - 0.5) * 400;
       const starGeo = new THREE.BufferGeometry();
       starGeo.setAttribute("position", new THREE.BufferAttribute(starVerts, 3));
-      scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.1 })));
+      s.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.1 })));
 
       /* ── Neptune ── */
       const neptuneMat = new THREE.MeshPhongMaterial({
@@ -96,8 +113,9 @@ export default function NeptunePage() {
       const loader = new THREE.TextureLoader();
       loader.setCrossOrigin("anonymous");
       function tryLoad(urls: string[]) {
-        if (!urls.length) return;
+        if (!urls.length || !alive) return;
         loader.load(urls[0], (tex) => {
+          if (!alive) { tex.dispose(); return; }
           neptuneMat.map = tex; neptuneMat.color.set(0xffffff); neptuneMat.needsUpdate = true;
         }, undefined, () => tryLoad(urls.slice(1)));
       }
@@ -105,14 +123,14 @@ export default function NeptunePage() {
         "https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/neptune_1k_color.jpg",
         "https://upload.wikimedia.org/wikipedia/commons/5/56/Neptune_Full.jpg",
       ]);
-      const neptune = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 64), neptuneMat);
-      scene.add(neptune);
+      const neptune = new THREE.Mesh(new THREE.SphereGeometry(1, PLANET_SEG, PLANET_SEG), neptuneMat);
+      s.add(neptune);
 
       /* ── Lighting — distant, cool sun ── */
-      scene.add(new THREE.AmbientLight(0x050a1a, 4));
+      s.add(new THREE.AmbientLight(0x050a1a, 4));
       const sun = new THREE.DirectionalLight(0xc0d8ff, 1.8);
       sun.position.set(5, 2, 4);
-      scene.add(sun);
+      s.add(sun);
 
       /* ── Helper: faint orbit ring ── */
       function makeOrbitRing(orbitR: number, inclX: number, inclZ = 0) {
@@ -151,44 +169,46 @@ export default function NeptunePage() {
       // Retrograde = negative speed; inclination ~2.74 rad (157°) makes it orbit "upside-down"
       const tritonOrbitR = 1.7;
       const tritonInclX  = 2.74;  // 157° — retrograde inclination
-      scene.add(makeOrbitRing(tritonOrbitR, tritonInclX));
+      s.add(makeOrbitRing(tritonOrbitR, tritonInclX));
       const tritonPivot = makeMoon({ radius: 0.065, orbitR: tritonOrbitR, inclX: tritonInclX, startAngle: 0.5, color: 0x8ab8cc });
-      scene.add(tritonPivot);
+      s.add(tritonPivot);
 
       /* ── Proteus — prograde, near equatorial ── */
       const proteusOrbitR = 2.1;
       const proteusInclX  = 0.03;
-      scene.add(makeOrbitRing(proteusOrbitR, proteusInclX));
+      s.add(makeOrbitRing(proteusOrbitR, proteusInclX));
       const proteusPivot = makeMoon({ radius: 0.038, orbitR: proteusOrbitR, inclX: proteusInclX, startAngle: Math.PI * 0.6, color: 0x4a4a5a });
-      scene.add(proteusPivot);
+      s.add(proteusPivot);
 
       /* ── Nereid — distant, highly inclined eccentric orbit ── */
       const nereidOrbitR = 2.7;
       const nereidInclX  = 0.95;  // ~55° inclination
-      scene.add(makeOrbitRing(nereidOrbitR, nereidInclX));
+      s.add(makeOrbitRing(nereidOrbitR, nereidInclX));
       const nereidPivot = makeMoon({ radius: 0.022, orbitR: nereidOrbitR, inclX: nereidInclX, startAngle: Math.PI * 1.3, color: 0x7a8899 });
-      scene.add(nereidPivot);
+      s.add(nereidPivot);
 
       /* ── Controls ── */
-      const controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping   = true;
-      controls.dampingFactor   = 0.06;
-      controls.minDistance     = 1.8;
-      controls.maxDistance     = 8;
-      controls.autoRotate      = true;
-      controls.autoRotateSpeed = 0.35;
+      const orbit = new OrbitControls(camera, r.domElement);
+      controls = orbit;
+      orbit.enableDamping   = true;
+      orbit.dampingFactor   = 0.06;
+      orbit.minDistance     = 1.8;
+      orbit.maxDistance     = 8;
+      orbit.autoRotate      = true;
+      orbit.autoRotateSpeed = 0.35;
 
-      let idleTimer: ReturnType<typeof setTimeout>;
-      renderer.domElement.addEventListener("pointerdown", () => { controls.autoRotate = false; clearTimeout(idleTimer); });
-      renderer.domElement.addEventListener("pointerup",   () => { idleTimer = setTimeout(() => { controls.autoRotate = true; }, 3000); });
+      onDown = () => { orbit.autoRotate = false; if (idleTimer) clearTimeout(idleTimer); };
+      onUp   = () => { idleTimer = setTimeout(() => { orbit.autoRotate = true; }, 3000); };
+      r.domElement.addEventListener("pointerdown", onDown);
+      r.domElement.addEventListener("pointerup",   onUp);
 
       /* ── Resize ── */
-      function onResize() {
+      onResize = () => {
         if (!mount) return;
         camera.aspect = mount.clientWidth / mount.clientHeight;
         camera.updateProjectionMatrix();
-        renderer.setSize(mount.clientWidth, mount.clientHeight);
-      }
+        r.setSize(mount.clientWidth, mount.clientHeight);
+      };
       window.addEventListener("resize", onResize);
 
       /* ── Loop ── */
@@ -198,8 +218,8 @@ export default function NeptunePage() {
         tritonPivot.rotation.y  -= 0.014;   // retrograde — negative direction ↺
         proteusPivot.rotation.y += 0.02;    // fast prograde
         nereidPivot.rotation.y  += 0.003;   // very slow — 360-day orbit
-        controls.update();
-        renderer.render(scene, camera);
+        orbit.update();
+        r.render(s, camera);
       }
       animate();
     })();
@@ -207,9 +227,33 @@ export default function NeptunePage() {
     return () => {
       alive = false;
       cancelAnimationFrame(animId);
-      if (rendererRef && mount.contains(rendererRef.domElement)) {
-        mount.removeChild(rendererRef.domElement);
-        rendererRef.dispose();
+      if (idleTimer) clearTimeout(idleTimer);
+      if (onResize) window.removeEventListener("resize", onResize);
+      if (canvas) {
+        if (onDown) canvas.removeEventListener("pointerdown", onDown);
+        if (onUp) canvas.removeEventListener("pointerup", onUp);
+      }
+      controls?.dispose();
+      // Free every geometry / material / texture so the GPU memory is released.
+      scene?.traverse((obj) => {
+        const o = obj as unknown as {
+          geometry?: { dispose?: () => void };
+          material?: unknown;
+        };
+        o.geometry?.dispose?.();
+        const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+        for (const m of mats as Array<{ map?: { dispose?: () => void }; dispose?: () => void }>) {
+          m.map?.dispose?.();
+          m.dispose?.();
+        }
+      });
+      if (renderer) {
+        renderer.dispose();
+        // forceContextLoss releases the underlying WebGL context immediately —
+        // dispose() alone often doesn't on mobile, leaking contexts until the
+        // browser's per-tab cap is hit and the page crashes.
+        renderer.forceContextLoss();
+        if (canvas && mount.contains(canvas)) mount.removeChild(canvas);
       }
     };
   }, []);

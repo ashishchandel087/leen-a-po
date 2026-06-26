@@ -4,8 +4,19 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
+  // Passwords come from env so production never ships the weak demo defaults.
+  // Set SEED_ADMIN_PASSWORD / SEED_LEENA_PASSWORD before seeding a real deploy.
+  const adminPw = process.env.SEED_ADMIN_PASSWORD || "admin123";
+  const leenaPw = process.env.SEED_LEENA_PASSWORD || "leena123";
+  if (!process.env.SEED_ADMIN_PASSWORD || !process.env.SEED_LEENA_PASSWORD) {
+    console.warn(
+      "⚠️  Using default demo passwords. Set SEED_ADMIN_PASSWORD and " +
+        "SEED_LEENA_PASSWORD env vars for anything beyond local dev."
+    );
+  }
+
   // Create admin user (you)
-  const adminPassword = await bcrypt.hash("admin123", 10);
+  const adminPassword = await bcrypt.hash(adminPw, 10);
   const admin = await prisma.user.upsert({
     where: { email: "ashish@leen-a-po.com" },
     update: {},
@@ -18,7 +29,7 @@ async function main() {
   });
 
   // Create GF user
-  const gfPassword = await bcrypt.hash("leena123", 10);
+  const gfPassword = await bcrypt.hash(leenaPw, 10);
   const gf = await prisma.user.upsert({
     where: { email: "leena@leen-a-po.com" },
     update: {},
@@ -43,8 +54,8 @@ async function main() {
   }
 
   console.log("✅ Seed complete!");
-  console.log("Admin:", admin.email, "/ password: admin123");
-  console.log("GF:", gf.email, "/ password: leena123");
+  console.log("Admin:", admin.email);
+  console.log("GF:", gf.email);
 }
 
 main()

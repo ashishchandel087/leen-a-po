@@ -18,17 +18,23 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { title, date, emoji, note } = await req.json();
-  if (!title || !date) {
-    return NextResponse.json({ error: "Title and date are required" }, { status: 400 });
+  const { title, date, emoji, note } = await req.json().catch(() => ({}));
+  const cleanTitle = typeof title === "string" ? title.trim().slice(0, 100) : "";
+  if (!cleanTitle) {
+    return NextResponse.json({ error: "Title required" }, { status: 400 });
   }
+  if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return NextResponse.json({ error: "date (YYYY-MM-DD) required" }, { status: 400 });
+  }
+  const cleanEmoji = typeof emoji === "string" && emoji.trim() ? emoji.trim().slice(0, 4) : "🎉";
+  const cleanNote = typeof note === "string" && note.trim() ? note.trim().slice(0, 500) : null;
 
   const occasion = await prisma.specialOccasion.create({
     data: {
-      title,
+      title: cleanTitle,
       date,
-      emoji: emoji || "🎉",
-      note: note || null,
+      emoji: cleanEmoji,
+      note: cleanNote,
     },
   });
   return NextResponse.json(occasion);
@@ -38,7 +44,14 @@ export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id } = await req.json();
-  await prisma.specialOccasion.update({ where: { id }, data: { deletedAt: new Date() } });
+  const { id } = await req.json().catch(() => ({}));
+  if (typeof id !== "string" || !id) {
+    return NextResponse.json({ error: "id required" }, { status: 400 });
+  }
+  const { count } = await prisma.specialOccasion.updateMany({
+    where: { id, deletedAt: null },
+    data: { deletedAt: new Date() },
+  });
+  if (count === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ success: true });
 }

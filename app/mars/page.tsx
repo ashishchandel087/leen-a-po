@@ -42,9 +42,24 @@ export default function MarsPage() {
     const mount = mountRef.current;
     if (!mount) return;
 
-    let animId: number;
-    let rendererRef: import("three").WebGLRenderer | null = null;
+    // Lighter scene on phones: fewer pixels, fewer polygons, no MSAA. Keeps
+    // memory/GPU load down and avoids exhausting the WebGL context budget.
+    const isMobile = window.matchMedia("(max-width: 768px)").matches;
+    const PIXEL_CAP = isMobile ? 1.5 : 2;
+    const PLANET_SEG = isMobile ? 48 : 64;
+    const STAR_COUNT = isMobile ? 1500 : 3000;
+
+    let animId = 0;
     let alive = true;
+    // Hoisted so the cleanup function can fully tear everything down.
+    let renderer: import("three").WebGLRenderer | null = null;
+    let scene: import("three").Scene | null = null;
+    let controls: { update: () => void; dispose: () => void } | null = null;
+    let idleTimer: ReturnType<typeof setTimeout> | undefined;
+    let onResize: (() => void) | null = null;
+    let onDown: (() => void) | null = null;
+    let onUp: (() => void) | null = null;
+    let canvas: HTMLCanvasElement | null = null;
 
     (async () => {
       const THREE = await import("three");
@@ -52,7 +67,7 @@ export default function MarsPage() {
       if (!alive || !mount) return;
 
       /* ── Scene ── */
-      const scene = new THREE.Scene();
+      scene = new THREE.Scene();
       scene.background = new THREE.Color(0x0a0305);
 
       /* ── Camera ── */
@@ -62,18 +77,20 @@ export default function MarsPage() {
       camera.position.z = 3.5;
 
       /* ── Renderer ── */
-      const renderer = new THREE.WebGLRenderer({ antialias: true });
-      rendererRef = renderer;
-      renderer.setSize(W, H);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      mount.appendChild(renderer.domElement);
+      renderer = new THREE.WebGLRenderer({ antialias: !isMobile });
+      const r = renderer;
+      const s = scene;
+      r.setSize(W, H);
+      r.setPixelRatio(Math.min(window.devicePixelRatio, PIXEL_CAP));
+      canvas = r.domElement;
+      mount.appendChild(r.domElement);
 
       /* ── Stars ── */
-      const starVerts = new Float32Array(3000 * 3);
+      const starVerts = new Float32Array(STAR_COUNT * 3);
       for (let i = 0; i < starVerts.length; i++) starVerts[i] = (Math.random() - 0.5) * 400;
       const starGeo = new THREE.BufferGeometry();
       starGeo.setAttribute("position", new THREE.BufferAttribute(starVerts, 3));
-      scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.1 })));
+      s.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.1 })));
 
       /* ── Mars ── */
       const marsMat = new THREE.MeshPhongMaterial({
@@ -84,8 +101,9 @@ export default function MarsPage() {
       const loader = new THREE.TextureLoader();
       loader.setCrossOrigin("anonymous");
       function tryLoad(urls: string[]) {
-        if (!urls.length) return;
+        if (!urls.length || !alive) return;
         loader.load(urls[0], (tex) => {
+          if (!alive) { tex.dispose(); return; }
           marsMat.map = tex; marsMat.color.set(0xffffff); marsMat.needsUpdate = true;
         }, undefined, () => tryLoad(urls.slice(1)));
       }
@@ -93,14 +111,14 @@ export default function MarsPage() {
         "https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/mars_1k_color.jpg",
         "https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/OSIRIS_Mars_true_color.jpg/1024px-OSIRIS_Mars_true_color.jpg",
       ]);
-      const mars = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 64), marsMat);
-      scene.add(mars);
+      const mars = new THREE.Mesh(new THREE.SphereGeometry(1, PLANET_SEG, PLANET_SEG), marsMat);
+      s.add(mars);
 
       /* ── Lighting ── */
-      scene.add(new THREE.AmbientLight(0x1a0505, 3));
+      s.add(new THREE.AmbientLight(0x1a0505, 3));
       const sun = new THREE.DirectionalLight(0xffe8d0, 3.5);
       sun.position.set(5, 2, 4);
-      scene.add(sun);
+      s.add(sun);
 
       /* ── Helper: faint orbit ring ── */
       function makeOrbitRing(orbitR: number, incl: number) {
@@ -137,37 +155,39 @@ export default function MarsPage() {
       /* ── Phobos ── */
       const phobosOrbitR = 1.65;
       const phobosIncl   = 0.017;   // ~1° real inclination
-      scene.add(makeOrbitRing(phobosOrbitR, phobosIncl));
+      s.add(makeOrbitRing(phobosOrbitR, phobosIncl));
       const phobosPivot = makeMoon({ radius: 0.04, orbitR: phobosOrbitR, incl: phobosIncl, startAngle: 0,    color: 0x8a7060 });
-      scene.add(phobosPivot);
+      s.add(phobosPivot);
 
       /* ── Deimos ── */
       const deimosOrbitR = 2.15;
       const deimosIncl   = 0.035;   // ~2° real inclination
-      scene.add(makeOrbitRing(deimosOrbitR, deimosIncl));
+      s.add(makeOrbitRing(deimosOrbitR, deimosIncl));
       const deimosPivot = makeMoon({ radius: 0.027, orbitR: deimosOrbitR, incl: deimosIncl, startAngle: Math.PI * 0.75, color: 0x9a8878 });
-      scene.add(deimosPivot);
+      s.add(deimosPivot);
 
       /* ── Controls ── */
-      const controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping   = true;
-      controls.dampingFactor   = 0.06;
-      controls.minDistance     = 1.8;
-      controls.maxDistance     = 7;
-      controls.autoRotate      = true;
-      controls.autoRotateSpeed = 0.45;
+      const orbit = new OrbitControls(camera, r.domElement);
+      controls = orbit;
+      orbit.enableDamping   = true;
+      orbit.dampingFactor   = 0.06;
+      orbit.minDistance     = 1.8;
+      orbit.maxDistance     = 7;
+      orbit.autoRotate      = true;
+      orbit.autoRotateSpeed = 0.45;
 
-      let idleTimer: ReturnType<typeof setTimeout>;
-      renderer.domElement.addEventListener("pointerdown", () => { controls.autoRotate = false; clearTimeout(idleTimer); });
-      renderer.domElement.addEventListener("pointerup",   () => { idleTimer = setTimeout(() => { controls.autoRotate = true; }, 3000); });
+      onDown = () => { orbit.autoRotate = false; if (idleTimer) clearTimeout(idleTimer); };
+      onUp   = () => { idleTimer = setTimeout(() => { orbit.autoRotate = true; }, 3000); };
+      r.domElement.addEventListener("pointerdown", onDown);
+      r.domElement.addEventListener("pointerup",   onUp);
 
       /* ── Resize ── */
-      function onResize() {
+      onResize = () => {
         if (!mount) return;
         camera.aspect = mount.clientWidth / mount.clientHeight;
         camera.updateProjectionMatrix();
-        renderer.setSize(mount.clientWidth, mount.clientHeight);
-      }
+        r.setSize(mount.clientWidth, mount.clientHeight);
+      };
       window.addEventListener("resize", onResize);
 
       /* ── Loop ── */
@@ -176,8 +196,8 @@ export default function MarsPage() {
         animId = requestAnimationFrame(animate);
         phobosPivot.rotation.y += 0.024;   // fast — Phobos orbits in ~7.6h
         deimosPivot.rotation.y += 0.008;   // slower — Deimos takes ~30h
-        controls.update();
-        renderer.render(scene, camera);
+        orbit.update();
+        r.render(s, camera);
       }
       animate();
     })();
@@ -185,9 +205,33 @@ export default function MarsPage() {
     return () => {
       alive = false;
       cancelAnimationFrame(animId);
-      if (rendererRef && mount.contains(rendererRef.domElement)) {
-        mount.removeChild(rendererRef.domElement);
-        rendererRef.dispose();
+      if (idleTimer) clearTimeout(idleTimer);
+      if (onResize) window.removeEventListener("resize", onResize);
+      if (canvas) {
+        if (onDown) canvas.removeEventListener("pointerdown", onDown);
+        if (onUp) canvas.removeEventListener("pointerup", onUp);
+      }
+      controls?.dispose();
+      // Free every geometry / material / texture so the GPU memory is released.
+      scene?.traverse((obj) => {
+        const o = obj as unknown as {
+          geometry?: { dispose?: () => void };
+          material?: unknown;
+        };
+        o.geometry?.dispose?.();
+        const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+        for (const m of mats as Array<{ map?: { dispose?: () => void }; dispose?: () => void }>) {
+          m.map?.dispose?.();
+          m.dispose?.();
+        }
+      });
+      if (renderer) {
+        renderer.dispose();
+        // forceContextLoss releases the underlying WebGL context immediately —
+        // dispose() alone often doesn't on mobile, leaking contexts until the
+        // browser's per-tab cap is hit and the page crashes.
+        renderer.forceContextLoss();
+        if (canvas && mount.contains(canvas)) mount.removeChild(canvas);
       }
     };
   }, []);

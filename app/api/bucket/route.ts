@@ -20,11 +20,12 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { title } = await req.json();
-  if (!title?.trim()) return NextResponse.json({ error: "Title required" }, { status: 400 });
+  const { title } = await req.json().catch(() => ({}));
+  const clean = typeof title === "string" ? title.trim().slice(0, 300) : "";
+  if (!clean) return NextResponse.json({ error: "Title required" }, { status: 400 });
 
   const item = await prisma.bucketItem.create({
-    data: { title: title.trim(), addedById: session.user.id },
+    data: { title: clean, addedById: session.user.id },
   });
   return NextResponse.json(item);
 }
@@ -34,15 +35,19 @@ export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id, completed } = await req.json();
-  const item = await prisma.bucketItem.update({
-    where: { id },
+  const { id, completed } = await req.json().catch(() => ({}));
+  if (typeof id !== "string" || !id || typeof completed !== "boolean") {
+    return NextResponse.json({ error: "id and completed required" }, { status: 400 });
+  }
+  const { count } = await prisma.bucketItem.updateMany({
+    where: { id, deletedAt: null },
     data: {
       completed,
       completedAt: completed ? new Date() : null,
     },
   });
-  return NextResponse.json(item);
+  if (count === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json({ success: true });
 }
 
 // DELETE — remove an item

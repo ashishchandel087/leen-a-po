@@ -45,6 +45,8 @@ interface Props {
     subscribed: boolean;
     onToggle: () => void;
   };
+  /** Optional right-aligned controls (e.g. the chat wallpaper picker). */
+  actions?: ReactNode;
 }
 
 export default function AppHeader({
@@ -53,6 +55,7 @@ export default function AppHeader({
   subtitle,
   backHref = "/dashboard",
   notifications,
+  actions,
 }: Props) {
   const { data: session } = useSession();
   const [open, setOpen] = useState(false);
@@ -101,6 +104,9 @@ export default function AppHeader({
               )}
             </div>
           </div>
+
+          {/* Right — caller-supplied actions (e.g. chat wallpaper picker) */}
+          {actions && <div className="flex items-center gap-1 shrink-0">{actions}</div>}
 
           {/* Right — desktop nav */}
           {variant === "main" && (

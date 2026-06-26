@@ -100,13 +100,23 @@ export function isValidMemoryKey(key: unknown, userId: string): key is string {
   return key.split("/")[1] === userId;
 }
 
-/** Sign each key, ignoring nulls so a partial signing failure doesn't 500. */
+/**
+ * Sign each key. A partial signing failure doesn't 500 — the failed key is
+ * dropped from the result, but logged so silently-vanishing attachments are
+ * diagnosable rather than invisible.
+ */
 export async function signKeys(keys: string[]): Promise<string[]> {
   if (!keys.length) return [];
   const settled = await Promise.allSettled(keys.map((k) => signGet(k)));
-  return settled
-    .filter((s): s is PromiseFulfilledResult<string> => s.status === "fulfilled")
-    .map((s) => s.value);
+  const signed: string[] = [];
+  settled.forEach((s, i) => {
+    if (s.status === "fulfilled") {
+      signed.push(s.value);
+    } else {
+      console.warn(`[r2] failed to sign key "${keys[i]}":`, s.reason);
+    }
+  });
+  return signed;
 }
 
 /**
