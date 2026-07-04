@@ -22,19 +22,27 @@ export async function GET() {
     orderBy: [{ order: "asc" }, { createdAt: "asc" }],
   });
 
+  // Sign per-sticker with allSettled — one bad key shouldn't 500 the whole
+  // picker. Failed stickers are dropped (and logged) rather than fatal.
   const out = await Promise.all(
-    packs.map(async (p) => ({
-      id: p.id,
-      name: p.name,
-      emoji: p.emoji,
-      stickers: await Promise.all(
+    packs.map(async (p) => {
+      const settled = await Promise.allSettled(
         p.stickers.map(async (s) => ({
           id: s.id,
           key: s.key,
           url: await signGet(s.key, 3600),
         }))
-      ),
-    }))
+      );
+      const stickers: { id: string; key: string; url: string }[] = [];
+      settled.forEach((r, i) => {
+        if (r.status === "fulfilled") {
+          stickers.push(r.value);
+        } else {
+          console.warn(`[stickers] failed to sign key "${p.stickers[i].key}":`, r.reason);
+        }
+      });
+      return { id: p.id, name: p.name, emoji: p.emoji, stickers };
+    })
   );
 
   return NextResponse.json(out);
@@ -86,9 +94,10 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "id required" }, { status: 400 });
   }
 
-  await prisma.sticker.update({
-    where: { id },
+  const { count } = await prisma.sticker.updateMany({
+    where: { id, deletedAt: null },
     data: { deletedAt: new Date() },
   });
+  if (count === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

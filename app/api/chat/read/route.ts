@@ -20,22 +20,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid timestamp" }, { status: 400 });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { lastReadAt: true },
-  });
-  if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  if (user.lastReadAt && user.lastReadAt >= ts) {
-    // No-op — never go backwards.
-    return NextResponse.json({ ok: true, lastReadAt: user.lastReadAt.toISOString() });
-  }
-
-  await prisma.user.update({
-    where: { id: session.user.id },
+  // Single atomic update — the "never go backwards" guard lives in the WHERE
+  // clause, so concurrent requests can't interleave a stale read-then-write.
+  const { count } = await prisma.user.updateMany({
+    where: {
+      id: session.user.id,
+      OR: [{ lastReadAt: null }, { lastReadAt: { lt: ts } }],
+    },
     data: { lastReadAt: ts },
   });
-  publishRead({ userId: session.user.id, lastReadAt: ts.toISOString() });
+  if (count > 0) {
+    publishRead({ userId: session.user.id, lastReadAt: ts.toISOString() });
+  }
 
   return NextResponse.json({ ok: true, lastReadAt: ts.toISOString() });
 }

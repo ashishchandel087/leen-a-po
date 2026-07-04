@@ -1,11 +1,11 @@
 {
   "name": "leen-a-po",
   "short_name": "leen-a-po",
-  "description": "NASA Astronomy Picture of the Day",
+  "description": "A private little universe for two",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#0a0305",
+  "theme_color": "#0a0305",
   "orientation": "portrait",
   "icons": [
     {

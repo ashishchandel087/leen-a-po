@@ -36,6 +36,7 @@ export async function DELETE(req: NextRequest) {
   if (typeof endpoint !== "string" || !endpoint) {
     return NextResponse.json({ error: "endpoint required" }, { status: 400 });
   }
-  await prisma.pushSubscription.deleteMany({ where: { endpoint } });
+  // Scope to the session user — one user can't unsubscribe another's device.
+  await prisma.pushSubscription.deleteMany({ where: { endpoint, userId: session.user.id } });
   return NextResponse.json({ success: true });
 }

@@ -39,12 +39,18 @@ function usePush() {
 
   useEffect(() => {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-    setSupported(true);
-    navigator.serviceWorker.register("/sw.js").then(async (reg) => {
-      setSwReg(reg);
-      const existing = await reg.pushManager.getSubscription();
-      setSubscribed(!!existing);
-    });
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then(async (reg) => {
+        setSupported(true);
+        setSwReg(reg);
+        const existing = await reg.pushManager.getSubscription();
+        setSubscribed(!!existing);
+      })
+      .catch(() => {
+        // Registration can fail (blocked storage, bad scope...) — treat as unsupported
+        setSupported(false);
+      });
   }, []);
 
   const subscribe = useCallback(async () => {
@@ -83,42 +89,16 @@ function usePush() {
   }, [swReg]);
 
   const sendPing = useCallback(async (title: string, body: string) => {
-    await fetch("/api/push/send", {
+    const res = await fetch("/api/push/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title, body, url: "/dashboard" }),
     });
+    if (!res.ok) throw new Error("Couldn't send ping");
   }, []);
 
   return { supported, subscribed, subscribe, unsubscribe, sendPing };
 }
-
-const MOODS = [
-  { emoji: "😄", label: "Happy" },
-  { emoji: "😍", label: "In Love" },
-  { emoji: "😌", label: "Peaceful" },
-  { emoji: "🥰", label: "Grateful" },
-  { emoji: "🤩", label: "Excited" },
-  { emoji: "🥳", label: "Celebrating" },
-  { emoji: "😂", label: "Laughing" },
-  { emoji: "🤗", label: "Cozy" },
-  { emoji: "🥹", label: "Touched" },
-  { emoji: "🙃", label: "Silly" },
-  { emoji: "😎", label: "Confident" },
-  { emoji: "🤔", label: "Thoughtful" },
-  { emoji: "😴", label: "Tired" },
-  { emoji: "🥱", label: "Bored" },
-  { emoji: "😰", label: "Anxious" },
-  { emoji: "🤒", label: "Unwell" },
-  { emoji: "😔", label: "Sad" },
-  { emoji: "😢", label: "Hurt" },
-  { emoji: "💔", label: "Heartbroken" },
-  { emoji: "😤", label: "Annoyed" },
-  { emoji: "😡", label: "Angry" },
-  { emoji: "🫠", label: "Melting" },
-  { emoji: "🥺", label: "Pleading" },
-  { emoji: "😶‍🌫️", label: "Foggy" },
-];
 
 interface MoodLog {
   id: string;
@@ -258,6 +238,194 @@ function Card({ children, className = "", animate = true }: { children: React.Re
   );
 }
 
+/* ── Question of the day ── */
+interface QuestionState {
+  date: string;
+  prompt: string;
+  mine: { text: string; createdAt: string } | null;
+  partner: { name: string; answered: boolean; text: string | null; createdAt: string | null };
+  revealed: boolean;
+}
+
+function DailyQuestionCard({ myName }: { myName: string }) {
+  const toast = useToast();
+  const [q, setQ] = useState<QuestionState | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Bumping refreshKey re-runs the load effect (retry button, tab refocus).
+  const [refreshKey, setRefreshKey] = useState(0);
+  const reload = useCallback(() => setRefreshKey((k) => k + 1), []);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/question")
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data) => {
+        if (!alive) return;
+        setQ(data);
+        setFailed(false);
+      })
+      .catch(() => {
+        if (alive) setFailed(true);
+      });
+    // The partner may answer (or the date may roll over) while the tab is
+    // backgrounded — refresh whenever it comes back.
+    const onVis = () => {
+      if (document.visibilityState === "visible") reload();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      alive = false;
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [refreshKey, reload]);
+
+  async function submit() {
+    const text = draft.trim();
+    if (!text || saving) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/question", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || "Couldn't save answer");
+      setQ(data);
+      setEditing(false);
+      setDraft("");
+      toast.show(data.revealed ? "Answers revealed ✨" : "Answer locked in 💌", "love");
+    } catch (err) {
+      toast.show(err instanceof Error ? err.message : "Couldn't save answer", "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const answering = Boolean(q && (!q.mine || editing) && !q.revealed);
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="font-semibold text-sm flex items-center gap-2">
+          💭 Question of the Day
+          <Sparkles className="w-3.5 h-3.5 text-rose-400" aria-hidden />
+        </h2>
+        {q?.revealed && (
+          <span className="text-[11px] bg-rose-500/20 text-rose-200 px-2 py-0.5 rounded-full font-medium">
+            Revealed ✨
+          </span>
+        )}
+      </div>
+
+      {failed ? (
+        <div className="flex flex-col items-center text-center py-4 gap-2">
+          <p className="text-white/55 text-sm">Couldn&apos;t load today&apos;s question</p>
+          <button
+            onClick={reload}
+            className="text-rose-300 hover:text-rose-200 text-xs font-medium underline-offset-2 hover:underline"
+          >
+            Try again
+          </button>
+        </div>
+      ) : !q ? (
+        <div className="flex items-center justify-center py-6">
+          <span className="w-5 h-5 rounded-full border-2 border-rose-500/30 border-t-rose-400 animate-orbit" aria-hidden />
+        </div>
+      ) : (
+        <>
+          <p className="text-white/90 text-[15px] leading-relaxed font-medium mb-4">
+            &ldquo;{q.prompt}&rdquo;
+          </p>
+
+          {answering ? (
+            <div className="flex flex-col gap-2">
+              <label htmlFor="dq-answer" className="sr-only">Your answer</label>
+              <textarea
+                id="dq-answer"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                maxLength={1000}
+                rows={3}
+                placeholder={
+                  q.partner.answered
+                    ? `${q.partner.name} has answered — yours unlocks both ✨`
+                    : "Your answer stays hidden until you both answer..."
+                }
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm placeholder-white/35 focus:outline-none focus:border-rose-400/50 resize-none"
+              />
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-white/45 text-[11px]">
+                  {q.partner.answered
+                    ? `🔒 ${q.partner.name} is waiting on you`
+                    : `${q.partner.name} hasn't answered yet`}
+                </p>
+                <div className="flex gap-2">
+                  {editing && (
+                    <button
+                      onClick={() => { setEditing(false); setDraft(""); }}
+                      className="text-white/55 hover:text-white/80 text-xs font-medium px-3 py-2 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  <motion.button
+                    {...tapPress}
+                    onClick={submit}
+                    disabled={saving || !draft.trim()}
+                    className="bg-rose-500/90 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold px-4 py-2 rounded-xl transition-colors"
+                  >
+                    {saving ? "Saving..." : q.mine ? "Update Answer" : "Submit Answer"}
+                  </motion.button>
+                </div>
+              </div>
+            </div>
+          ) : q.revealed ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 stagger">
+              {[{ name: myName || "You", text: q.mine!.text, mine: true },
+                { name: q.partner.name, text: q.partner.text ?? "", mine: false }].map((a) => (
+                <div
+                  key={a.mine ? "mine" : "theirs"}
+                  className={`animate-fade-up rounded-xl p-3 border backdrop-blur-sm ${
+                    a.mine ? "bg-white/[0.04] border-white/10" : "bg-rose-900/25 border-rose-500/35"
+                  }`}
+                >
+                  <p className={`text-xs font-semibold mb-1 ${a.mine ? "text-white/70" : "text-rose-200"}`}>
+                    {a.mine ? "You" : a.name} {a.mine ? "" : "💗"}
+                  </p>
+                  <p className="text-white/85 text-sm leading-relaxed whitespace-pre-wrap break-words">{a.text}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <div className="rounded-xl p-3 border bg-white/[0.04] border-white/10">
+                <p className="text-xs font-semibold text-white/70 mb-1">You</p>
+                <p className="text-white/85 text-sm leading-relaxed whitespace-pre-wrap break-words">{q.mine!.text}</p>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-white/55 text-xs">
+                  🔒 Waiting for {q.partner.name} — answers reveal together
+                </p>
+                <button
+                  onClick={() => { setEditing(true); setDraft(q.mine!.text); }}
+                  className="text-rose-300 hover:text-rose-200 text-xs font-medium underline-offset-2 hover:underline"
+                >
+                  Edit
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </Card>
+  );
+}
+
 export default function Dashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -370,28 +538,42 @@ export default function Dashboard() {
   }
 
   async function toggleBucketItem(id: string, completed: boolean) {
-    await fetch("/api/bucket", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, completed: !completed }),
-    });
-    setBucketItems((prev) =>
-      prev.map((item) =>
+    const prev = bucketItems;
+    setBucketItems((items) =>
+      items.map((item) =>
         item.id === id
           ? { ...item, completed: !completed, completedAt: !completed ? new Date().toISOString() : null }
           : item
       )
     );
-    if (!completed) toast.show("Done! 🎉", "love");
+    try {
+      const res = await fetch("/api/bucket", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, completed: !completed }),
+      });
+      if (!res.ok) throw new Error();
+      if (!completed) toast.show("Done! 🎉", "love");
+    } catch {
+      setBucketItems(prev);
+      toast.show("Couldn't update item", "error");
+    }
   }
 
   async function deleteBucketItem(id: string) {
-    await fetch("/api/bucket", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    setBucketItems((prev) => prev.filter((item) => item.id !== id));
+    const prev = bucketItems;
+    setBucketItems((items) => items.filter((item) => item.id !== id));
+    try {
+      const res = await fetch("/api/bucket", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setBucketItems(prev);
+      toast.show("Couldn't delete item", "error");
+    }
   }
 
   async function addOccasion() {
@@ -420,12 +602,19 @@ export default function Dashboard() {
   }
 
   async function deleteOccasion(id: string) {
-    await fetch("/api/occasions", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    setOccasions((prev) => prev.filter((o) => o.id !== id));
+    const prev = occasions;
+    setOccasions((occs) => occs.filter((o) => o.id !== id));
+    try {
+      const res = await fetch("/api/occasions", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setOccasions(prev);
+      toast.show("Couldn't delete occasion", "error");
+    }
   }
 
   async function sendPingNow() {
@@ -662,6 +851,9 @@ export default function Dashboard() {
           </Card>
 
         </div>
+
+        {/* Question of the day */}
+        <DailyQuestionCard myName={session?.user?.name ?? "You"} />
 
         {/* Bucket List */}
         <Card>

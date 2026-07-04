@@ -46,9 +46,10 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "id required" }, { status: 400 });
   }
 
-  await prisma.stickerPack.update({
-    where: { id },
+  const { count } = await prisma.stickerPack.updateMany({
+    where: { id, deletedAt: null },
     data: { deletedAt: new Date() },
   });
+  if (count === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

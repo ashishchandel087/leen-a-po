@@ -55,7 +55,14 @@ export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id } = await req.json();
-  await prisma.bucketItem.update({ where: { id }, data: { deletedAt: new Date() } });
+  const { id } = await req.json().catch(() => ({}));
+  if (typeof id !== "string" || !id) {
+    return NextResponse.json({ error: "id required" }, { status: 400 });
+  }
+  const { count } = await prisma.bucketItem.updateMany({
+    where: { id, deletedAt: null },
+    data: { deletedAt: new Date() },
+  });
+  if (count === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ success: true });
 }

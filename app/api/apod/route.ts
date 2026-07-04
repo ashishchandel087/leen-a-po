@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 // NASA APOD key. Set NASA_API_KEY in env; falls back to the shared DEMO_KEY
 // (heavily rate-limited) so the route still works in local dev without config.
 const NASA_API_KEY = process.env.NASA_API_KEY || "DEMO_KEY";
 
 export async function GET() {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     // Include today's date so each day gets its own cache key — prevents stale images
     const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD UTC

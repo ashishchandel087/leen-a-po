@@ -109,12 +109,19 @@ export default function AdminPage() {
   }
 
   async function deleteEvent(id: string) {
-    await fetch("/api/timeline", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    setTimelineEvents((prev) => prev.filter((ev) => ev.id !== id));
+    const prev = timelineEvents;
+    setTimelineEvents((evts) => evts.filter((ev) => ev.id !== id));
+    try {
+      const res = await fetch("/api/timeline", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setTimelineEvents(prev);
+      toast.show("Couldn't delete event", "error");
+    }
   }
 
   async function addUser(e: React.FormEvent) {
@@ -122,32 +129,44 @@ export default function AdminPage() {
     setUserLoading(true);
     setUserError("");
     setUserSuccess("");
-    const res = await fetch("/api/users", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password, role }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setUsers((prev) => [...prev, data]);
-      setName(""); setEmail(""); setPassword(""); setRole("user");
-      setUserSuccess(`${data.name} added`);
-      toast.show(`${data.name} added`, "success");
-    } else {
-      setUserError(data.error || "Something went wrong");
-      toast.show("Couldn't add user", "error");
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, role }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUsers((prev) => [...prev, data]);
+        setName(""); setEmail(""); setPassword(""); setRole("user");
+        setUserSuccess(`${data.name} added`);
+        toast.show(`${data.name} added`, "success");
+      } else {
+        setUserError(data.error || "Something went wrong");
+        toast.show("Couldn't add user", "error");
+      }
+    } catch {
+      setUserError("Network error — check console");
+      toast.show("Network error", "error");
     }
     setUserLoading(false);
   }
 
   async function deleteUser(id: string, userName: string) {
     if (!confirm(`Remove ${userName}?`)) return;
-    await fetch("/api/users", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    setUsers((prev) => prev.filter((u) => u.id !== id));
+    const prev = users;
+    setUsers((us) => us.filter((u) => u.id !== id));
+    try {
+      const res = await fetch("/api/users", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setUsers(prev);
+      toast.show(`Couldn't remove ${userName}`, "error");
+    }
   }
 
   if (status === "loading") {

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence, tapPress } from "./motion";
 import { useToast } from "./Toast";
-import { Plus, Trash, Sparkles, X, MapPin, ImagePlus } from "./Icons";
+import { Plus, Sparkles, X, MapPin, ImagePlus } from "./Icons";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const MAX_FILES = 10;
@@ -48,20 +48,22 @@ export default function MemoryUploadModal({ open, onClose, onCreated }: Props) {
   const [files, setFiles] = useState<PendingFile[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const placeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Reset state whenever the modal closes
+  // Reset state whenever the modal closes (via the effect cleanup)
   useEffect(() => {
-    if (open) return;
-    files.forEach((f) => URL.revokeObjectURL(f.previewUrl));
-    setDate(todayLocal());
-    setCaption("");
-    setLocation("");
-    setLatLng(null);
-    setSuggestions([]);
-    setFiles([]);
-    setSubmitting(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!open) return;
+    return () => {
+      setFiles((prev) => {
+        prev.forEach((f) => URL.revokeObjectURL(f.previewUrl));
+        return [];
+      });
+      setDate(todayLocal());
+      setCaption("");
+      setLocation("");
+      setLatLng(null);
+      setSuggestions([]);
+      setSubmitting(false);
+    };
   }, [open]);
 
   // Esc to close
@@ -75,33 +77,34 @@ export default function MemoryUploadModal({ open, onClose, onCreated }: Props) {
   }, [open, onClose]);
 
   // Geocode location text on debounce — uses Nominatim (OSM, free, no API key,
-  // rate limited to ~1 req/sec by polite usage policy)
+  // rate limited to ~1 req/sec by polite usage policy). The AbortController
+  // cancels the in-flight request when the query changes (or on unmount) so a
+  // slow, stale response can't overwrite a newer one.
   useEffect(() => {
     if (!open) return;
-    if (placeTimeoutRef.current) clearTimeout(placeTimeoutRef.current);
-    if (location.trim().length < 3) {
-      setSuggestions([]);
-      return;
-    }
-    placeTimeoutRef.current = setTimeout(async () => {
+    if (location.trim().length < 3) return;
+    const controller = new AbortController();
+    const timeout = setTimeout(async () => {
       setSearchingPlace(true);
       try {
         const res = await fetch(
           `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(location.trim())}`,
-          { headers: { "Accept-Language": "en" } }
+          { headers: { "Accept-Language": "en" }, signal: controller.signal }
         );
         if (res.ok) {
           const data = (await res.json()) as PlaceSuggestion[];
           setSuggestions(data.slice(0, 5));
         }
       } catch {
-        /* ignore */
+        /* aborted or network error — ignore */
       } finally {
-        setSearchingPlace(false);
+        // A newer request owns the spinner once this one is aborted
+        if (!controller.signal.aborted) setSearchingPlace(false);
       }
     }, 600);
     return () => {
-      if (placeTimeoutRef.current) clearTimeout(placeTimeoutRef.current);
+      clearTimeout(timeout);
+      controller.abort();
     };
   }, [location, open]);
 
@@ -388,6 +391,7 @@ export default function MemoryUploadModal({ open, onClose, onCreated }: Props) {
                       onChange={(e) => {
                         setLocation(e.target.value);
                         setLatLng(null);
+                        if (e.target.value.trim().length < 3) setSuggestions([]);
                       }}
                       placeholder="e.g. Lucknow, India (optional)"
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/45 focus:outline-none focus:border-rose-400"

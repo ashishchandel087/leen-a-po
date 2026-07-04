@@ -28,6 +28,10 @@ function isLockedOut(key: string): boolean {
   return a.count >= MAX_ATTEMPTS;
 }
 
+// Well-formed bcrypt hash (of a throwaway string) compared against when the
+// user doesn't exist, so unknown-email and wrong-password take similar time.
+const DUMMY_HASH = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
+
 function recordFailure(key: string) {
   const a = attempts.get(key);
   if (!a || Date.now() - a.firstAt > LOCKOUT_MS) {
@@ -64,27 +68,31 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        const key = credentials.email.toLowerCase();
-        if (isLockedOut(key)) {
+        // Normalize once — the lockout key and the DB lookup must agree,
+        // otherwise case variants dodge the throttle and `Leena@x.com`
+        // fails to log in.
+        const email = credentials.email.toLowerCase().trim();
+        if (isLockedOut(email)) {
           throw new Error("Too many attempts. Try again later.");
         }
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: { email },
         });
 
         if (!user) {
-          recordFailure(key);
+          await bcrypt.compare(credentials.password, DUMMY_HASH);
+          recordFailure(email);
           return null;
         }
 
         const valid = await bcrypt.compare(credentials.password, user.password);
         if (!valid) {
-          recordFailure(key);
+          recordFailure(email);
           return null;
         }
 
-        attempts.delete(key); // success — clear the counter
+        attempts.delete(email); // success — clear the counter
         return { id: user.id, email: user.email, name: user.name, role: user.role };
       },
     }),

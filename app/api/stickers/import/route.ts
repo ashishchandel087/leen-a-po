@@ -7,13 +7,15 @@ import {
   extractPackName,
   getStickerSet,
   downloadFile,
+  FileTooLargeError,
   type TelegramSticker,
 } from "@/lib/telegram";
 
 export const runtime = "nodejs";
 export const maxDuration = 60; // import can take a moment for big packs
 
-const MAX_STICKERS_PER_IMPORT = 120; // generous, Telegram packs are 1–120 stickers
+const MAX_STICKERS_PER_REQUEST = 50; // serial downloads must fit inside maxDuration
+const MAX_STICKER_BYTES = 2 * 1024 * 1024; // stickers are small; skip anything bigger
 
 function randomId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
@@ -79,7 +81,7 @@ export async function POST(req: NextRequest) {
   // .tgs (Lottie) needs a different renderer, skip with a count for the user.
   const supported: TelegramSticker[] = [];
   let skippedAnimated = 0;
-  for (const s of set.stickers.slice(0, MAX_STICKERS_PER_IMPORT)) {
+  for (const s of set.stickers) {
     if (s.is_animated) {
       skippedAnimated++;
       continue;
@@ -87,14 +89,21 @@ export async function POST(req: NextRequest) {
     supported.push(s);
   }
 
+  // Bound the batch so the serial download loop fits inside maxDuration.
+  // Anything past the cap is reported as `truncated` — the client can re-run
+  // the import into the same pack to pick up the rest.
+  const truncated = Math.max(0, supported.length - MAX_STICKERS_PER_REQUEST);
+  const batch = supported.slice(0, MAX_STICKERS_PER_REQUEST);
+
   const created: { id: string; key: string; url: string }[] = [];
   const errors: { file_id: string; error: string }[] = [];
+  let skippedTooLarge = 0;
 
   // Process serially to avoid hammering Telegram's rate limit (~30 req/sec)
   // and R2's regional concurrent upload behavior.
-  for (const tgSticker of supported) {
+  for (const tgSticker of batch) {
     try {
-      const { bytes, mime } = await downloadFile(tgSticker.file_id);
+      const { bytes, mime } = await downloadFile(tgSticker.file_id, MAX_STICKER_BYTES);
       const ext = tgSticker.is_video ? "webm" : "webp";
       // Group stickers by pack folder so the R2 dashboard mirrors the app.
       const key = `stickers/${pack.id}/${randomId()}.${ext}`;
@@ -107,6 +116,10 @@ export async function POST(req: NextRequest) {
         url: await signGet(sticker.key, 3600),
       });
     } catch (err) {
+      if (err instanceof FileTooLargeError) {
+        skippedTooLarge++;
+        continue;
+      }
       errors.push({
         file_id: tgSticker.file_id,
         error: err instanceof Error ? err.message : "unknown",
@@ -122,6 +135,8 @@ export async function POST(req: NextRequest) {
     },
     importedCount: created.length,
     skippedAnimated,
+    skippedTooLarge,
+    truncated,
     errors,
     stickers: created,
   });

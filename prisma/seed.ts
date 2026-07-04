@@ -9,6 +9,12 @@ async function main() {
   const adminPw = process.env.SEED_ADMIN_PASSWORD || "admin123";
   const leenaPw = process.env.SEED_LEENA_PASSWORD || "leena123";
   if (!process.env.SEED_ADMIN_PASSWORD || !process.env.SEED_LEENA_PASSWORD) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "Refusing to seed production with default demo passwords. " +
+          "Set SEED_ADMIN_PASSWORD and SEED_LEENA_PASSWORD and re-run."
+      );
+    }
     console.warn(
       "⚠️  Using default demo passwords. Set SEED_ADMIN_PASSWORD and " +
         "SEED_LEENA_PASSWORD env vars for anything beyond local dev."
@@ -59,5 +65,8 @@ async function main() {
 }
 
 main()
-  .catch(console.error)
+  .catch((err) => {
+    console.error(err);
+    process.exitCode = 1; // fail CI/deploy scripts on a broken seed
+  })
   .finally(() => prisma.$disconnect());

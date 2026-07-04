@@ -72,13 +72,35 @@ async function getFile(file_id: string): Promise<FileResult> {
   return json.result;
 }
 
-/** Download a Telegram-hosted file as a Uint8Array. */
-export async function downloadFile(file_id: string): Promise<{ bytes: Uint8Array; mime: string }> {
+/** Thrown when a file exceeds the caller-supplied size cap. */
+export class FileTooLargeError extends Error {
+  constructor(size: number, maxBytes: number) {
+    super(`File is ${size} bytes (cap ${maxBytes})`);
+    this.name = "FileTooLargeError";
+  }
+}
+
+/**
+ * Download a Telegram-hosted file as a Uint8Array. If `maxBytes` is given,
+ * files over the cap throw FileTooLargeError — checked against getFile's
+ * file_size before downloading, and against the actual bytes as a backstop
+ * (file_size is optional in Telegram's API).
+ */
+export async function downloadFile(
+  file_id: string,
+  maxBytes?: number
+): Promise<{ bytes: Uint8Array; mime: string }> {
   const fileInfo = await getFile(file_id);
+  if (maxBytes && fileInfo.file_size && fileInfo.file_size > maxBytes) {
+    throw new FileTooLargeError(fileInfo.file_size, maxBytes);
+  }
   const fileUrl = `${API_BASE}/file/bot${token()}/${fileInfo.file_path}`;
   const res = await fetch(fileUrl);
   if (!res.ok) throw new Error(`Telegram file download failed: ${res.status}`);
   const buf = new Uint8Array(await res.arrayBuffer());
+  if (maxBytes && buf.byteLength > maxBytes) {
+    throw new FileTooLargeError(buf.byteLength, maxBytes);
+  }
   // Telegram serves WebP as image/webp and WebM as video/webm; trust the
   // file_path extension as authoritative since the response header is sometimes
   // application/octet-stream.

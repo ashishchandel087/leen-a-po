@@ -15,8 +15,9 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "admin") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (session.user.role !== "admin") {
+    return NextResponse.json({ error: "Admin only" }, { status: 403 });
   }
   const { type, date, endDate, title, reason } = await req.json().catch(() => ({}));
   const VALID_TYPES = ["start", "break", "reunion", "milestone"];
@@ -42,8 +43,9 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "admin") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (session.user.role !== "admin") {
+    return NextResponse.json({ error: "Admin only" }, { status: 403 });
   }
   const { id } = await req.json().catch(() => ({}));
   if (typeof id !== "string" || !id) {

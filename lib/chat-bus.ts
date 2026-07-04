@@ -3,8 +3,8 @@
 //
 // How the wires connect:
 //   • Each Node process opens ONE direct (non-pooled) Postgres connection
-//     and runs `LISTEN chat_events` on it. Incoming pg_notify payloads are
-//     pushed over the open socket instantly.
+//     (lazily, on first subscribe) and runs `LISTEN chat_events` on it.
+//     Incoming pg_notify payloads are pushed over the open socket instantly.
 //   • publishX() functions fire `pg_notify(...)` through the existing pooled
 //     Prisma connection — pooled is fine for one-shot statements; only
 //     LISTEN needs a sticky direct connection.
@@ -38,8 +38,16 @@ type GlobalState = {
 const g = globalThis as unknown as GlobalState;
 
 export const chatBus: EventEmitter = g.chatBus ?? new EventEmitter();
-chatBus.setMaxListeners(50);
+// 0 = unlimited — each SSE stream registers one listener per event type
+// (~7), so any fixed cap starts warning after a handful of open tabs.
+chatBus.setMaxListeners(0);
 if (!g.chatBus) g.chatBus = chatBus;
+
+// Per-process tag added to every broadcast payload. The notification handler
+// uses it to skip our own pg_notify echo — the local emit in broadcast()
+// already delivered the event, so replaying the echo would double-deliver
+// to every SSE client on the publishing instance.
+const INSTANCE_ID = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
 function directDatabaseUrl(): string | undefined {
   if (process.env.DATABASE_URL_UNPOOLED) return process.env.DATABASE_URL_UNPOOLED;
@@ -77,7 +85,9 @@ function startListener() {
       client.on("notification", (msg) => {
         if (msg.channel !== CHANNEL || !msg.payload) return;
         try {
-          const event = JSON.parse(msg.payload) as BusEvent;
+          const event = JSON.parse(msg.payload) as BusEvent & { _src?: string };
+          if (event._src === INSTANCE_ID) return; // our own echo — already emitted locally
+          delete event._src; // strip the tag so consumers only ever see BusEvent
           chatBus.emit(event.type, event);
         } catch {
           /* malformed — ignore */
@@ -92,7 +102,6 @@ function startListener() {
       await client.connect();
       await client.query(`LISTEN ${CHANNEL}`);
       backoff = 1000;
-      // eslint-disable-next-line no-console
       console.log(`[chat-bus] LISTEN ${CHANNEL}`);
     } catch (err) {
       console.warn("[chat-bus] connect failed:", err instanceof Error ? err.message : err);
@@ -104,11 +113,10 @@ function startListener() {
   connect();
 }
 
-if (typeof window === "undefined") startListener();
-
 // ── Generic broadcast helper ──────────────────────────────────────────
 async function broadcast(event: BusEvent) {
-  const json = JSON.stringify(event);
+  // Tag with our instance id so the LISTEN handler skips the echo.
+  const json = JSON.stringify({ ...event, _src: INSTANCE_ID });
   try {
     // $executeRaw (not $queryRaw) — pg_notify returns void, which $queryRaw
     // can't deserialize. $executeRaw doesn't try to read columns back.
@@ -116,8 +124,7 @@ async function broadcast(event: BusEvent) {
   } catch (err) {
     console.warn("[chat-bus] pg_notify failed:", err instanceof Error ? err.message : err);
   }
-  // Local emit so this instance's SSE clients see it without DB roundtrip;
-  // duplicates from LISTEN are deduped on the client by id.
+  // Local emit so this instance's SSE clients see it without DB roundtrip.
   chatBus.emit(event.type, event);
 }
 
@@ -162,6 +169,9 @@ type Handlers = {
 };
 
 export function subscribe(on: Handlers) {
+  // Lazy-start the LISTEN connection on first subscriber — publish-only
+  // lambdas and `next build` never need (or should open) the direct socket.
+  startListener();
   const entries = (Object.entries(on) as [keyof Handlers, (...a: unknown[]) => void][]);
   entries.forEach(([k, fn]) => chatBus.on(k as string, fn));
   return () => entries.forEach(([k, fn]) => chatBus.off(k as string, fn));

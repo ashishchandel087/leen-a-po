@@ -9,9 +9,9 @@ import LoadingScreen from "../components/LoadingScreen";
 import MemoryUploadModal from "../components/MemoryUploadModal";
 import { useToast } from "../components/Toast";
 import {
-  Plus, Trash, Sparkles, X, MapPin, Grid, CalendarDays, ArrowLeft,
+  Plus, Trash, Sparkles, MapPin, Grid, CalendarDays, ArrowLeft,
 } from "../components/Icons";
-import { motion, AnimatePresence, listItem, tapPress } from "../components/motion";
+import { motion, AnimatePresence, tapPress } from "../components/motion";
 
 const MemoryMap = dynamic(() => import("../components/MemoryMap"), {
   ssr: false,
@@ -76,6 +76,7 @@ export default function GalleryPage() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [lightboxId, setLightboxId] = useState<string | null>(null);
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const loadingMoreRef = useRef(false);
 
@@ -83,24 +84,28 @@ export default function GalleryPage() {
     if (status === "unauthenticated") router.push("/login");
   }, [status, router]);
 
-  const loadInitial = useCallback(async () => {
-    try {
-      const res = await fetch("/api/memories");
-      if (!res.ok) throw new Error();
-      const data = (await res.json()) as { items: Memory[]; nextCursor: string | null };
-      setMemories(data.items);
-      setNextCursor(data.nextCursor);
-      setLoaded(true);
-    } catch {
-      toast.show("Couldn't load memories", "error");
-      setLoaded(true);
-    }
-  }, [toast]);
-
+  // Initial load — also re-runs when refreshKey bumps (after a new memory)
   useEffect(() => {
     if (status !== "authenticated") return;
-    loadInitial();
-  }, [status, loadInitial]);
+    let alive = true;
+    fetch("/api/memories")
+      .then((res) => {
+        if (!res.ok) throw new Error();
+        return res.json() as Promise<{ items: Memory[]; nextCursor: string | null }>;
+      })
+      .then((data) => {
+        if (!alive) return;
+        setMemories(data.items);
+        setNextCursor(data.nextCursor);
+        setLoaded(true);
+      })
+      .catch(() => {
+        if (!alive) return;
+        toast.show("Couldn't load memories", "error");
+        setLoaded(true);
+      });
+    return () => { alive = false; };
+  }, [status, refreshKey, toast]);
 
   const loadMore = useCallback(async () => {
     if (loadingMoreRef.current || !nextCursor) return;
@@ -126,8 +131,8 @@ export default function GalleryPage() {
 
   const onMemoryCreated = useCallback(() => {
     // simplest refresh — reload page 1
-    loadInitial();
-  }, [loadInitial]);
+    setRefreshKey((k) => k + 1);
+  }, []);
 
   const deleteMemory = useCallback(
     async (id: string) => {
@@ -195,9 +200,29 @@ export default function GalleryPage() {
     [memories, lightboxId]
   );
   const [lightboxIdx, setLightboxIdx] = useState(0);
+
+  const openLightbox = useCallback((id: string) => {
+    setLightboxId(id);
+    setLightboxIdx(0); // always start at the first photo
+  }, []);
+
+  // Keyboard controls while the lightbox is open — Esc closes (mirrors
+  // MemoryUploadModal), arrows step through the photos.
   useEffect(() => {
-    setLightboxIdx(0);
-  }, [lightboxId]);
+    if (!lightboxMemory) return;
+    const total = lightboxMemory.attachments.length;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setLightboxId(null);
+      } else if (e.key === "ArrowLeft" && total > 1) {
+        setLightboxIdx((i) => (i === 0 ? total - 1 : i - 1));
+      } else if (e.key === "ArrowRight" && total > 1) {
+        setLightboxIdx((i) => (i === total - 1 ? 0 : i + 1));
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [lightboxMemory]);
 
   if (status === "loading" || !loaded) {
     return <LoadingScreen message="Gathering memories" />;
@@ -270,7 +295,7 @@ export default function GalleryPage() {
                   key={m.id}
                   layout
                   type="button"
-                  onClick={() => setLightboxId(m.id)}
+                  onClick={() => openLightbox(m.id)}
                   whileHover={{ scale: 1.02 }}
                   whileTap={tapPress}
                   className="block w-full mb-2 break-inside-avoid rounded-xl overflow-hidden bg-white/[0.04] border border-white/10 hover:border-rose-400/40 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 transition-colors"
@@ -346,7 +371,7 @@ export default function GalleryPage() {
                         <button
                           key={m.id}
                           type="button"
-                          onClick={() => setLightboxId(m.id)}
+                          onClick={() => openLightbox(m.id)}
                           className="aspect-square rounded-lg overflow-hidden bg-black/30 cursor-pointer hover:ring-2 hover:ring-rose-400/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 transition-all"
                         >
                           {m.attachments[0] && (
@@ -387,7 +412,7 @@ export default function GalleryPage() {
               </p>
             )}
             <div className="h-[60vh] min-h-[400px]">
-              <MemoryMap memories={mapMemories} onSelect={(id) => setLightboxId(id)} />
+              <MemoryMap memories={mapMemories} onSelect={openLightbox} />
             </div>
             <p className="text-[11px] text-white/40 text-center">
               Showing {mapMemories.length} of {memories.length} memories with locations.

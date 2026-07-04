@@ -7,6 +7,8 @@ import { subscribe } from "@/lib/chat-bus";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const fetchCache = "force-no-store";
+// Serverless platforms kill the SSE stream at the function timeout — stretch it (the client reconnects).
+export const maxDuration = 300;
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);

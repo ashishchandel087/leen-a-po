@@ -142,6 +142,9 @@ export default function PissOffPage() {
   const [date, setDate]       = useState(todayLocal());
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
+  // Timestamp held in state (set alongside the logs) so the peace-streak
+  // calculation stays pure during render.
+  const [now, setNow]         = useState<number | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login");
@@ -149,7 +152,10 @@ export default function PissOffPage() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      fetch("/api/pissoff").then(r => r.ok ? r.json() : []).then(setLogs);
+      fetch("/api/pissoff").then(r => r.ok ? r.json() : []).then((data) => {
+        setLogs(data);
+        setNow(Date.now());
+      });
     }
   }, [status]);
 
@@ -158,34 +164,44 @@ export default function PissOffPage() {
     if (!reason.trim()) return;
     setLoading(true);
     setError("");
-    const res = await fetch("/api/pissoff", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ who, reason, level, date }),
-    });
-    const data = await res.json();
-    if (res.ok) {
+    try {
+      const res = await fetch("/api/pissoff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ who, reason, level, date }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Something went wrong");
       setLogs(prev => [data, ...prev].sort((a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       ));
+      setNow(Date.now());
       setReason("");
       setLevel(1);
       setDate(todayLocal());
       toast.show("Incident logged 🚨", "success");
-    } else {
-      setError(data.error ?? "Something went wrong");
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : "Something went wrong");
       toast.show("Couldn't log incident", "error");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function deleteLog(id: string) {
-    await fetch("/api/pissoff", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    setLogs(prev => prev.filter(l => l.id !== id));
+    const prev = logs;
+    setLogs(ls => ls.filter(l => l.id !== id));
+    try {
+      const res = await fetch("/api/pissoff", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setLogs(prev);
+      toast.show("Couldn't delete incident", "error");
+    }
   }
 
   if (status === "loading") {
@@ -200,8 +216,8 @@ export default function PissOffPage() {
   const leenaPct    = 100 - ashishPct;
   const topLog      = [...logs].sort((a, b) => b.level - a.level)[0];
   const lastLog     = logs[0];
-  const peaceDays   = lastLog
-    ? Math.floor((Date.now() - new Date(lastLog.createdAt).getTime()) / 86400000)
+  const peaceDays   = lastLog && now !== null
+    ? Math.floor((now - new Date(lastLog.createdAt).getTime()) / 86400000)
     : null;
 
   // All history sorted newest first

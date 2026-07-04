@@ -79,6 +79,7 @@ export default function VoiceRecorder({ open, onClose, onRecorded }: Props) {
     if (mediaRecorderRef.current?.state === "recording") {
       mediaRecorderRef.current.stop();
     }
+    mediaRecorderRef.current = null;
     if (tickRef.current) {
       clearInterval(tickRef.current);
       tickRef.current = null;
@@ -108,6 +109,7 @@ export default function VoiceRecorder({ open, onClose, onRecorded }: Props) {
     });
     const blob = new Blob(chunksRef.current, { type: mime });
     chunksRef.current = [];
+    mediaRecorderRef.current = null;
     setRecording(false);
     stopStream();
 
@@ -120,14 +122,27 @@ export default function VoiceRecorder({ open, onClose, onRecorded }: Props) {
     }
   }, [onRecorded, onClose, stopStream]);
 
-  // Auto-start when opened
+  // Auto-start when opened; the cleanup tears down any in-flight recording
+  // when the panel closes so the next open starts fresh.
   useEffect(() => {
-    if (open && !recording && !mediaRecorderRef.current) {
+    if (!open) return;
+    if (!mediaRecorderRef.current) {
       start();
     }
-    if (!open && recording) {
-      cancel();
-    }
+    return () => {
+      if (mediaRecorderRef.current?.state === "recording") {
+        mediaRecorderRef.current.stop();
+      }
+      mediaRecorderRef.current = null;
+      if (tickRef.current) {
+        clearInterval(tickRef.current);
+        tickRef.current = null;
+      }
+      chunksRef.current = [];
+      stopStream();
+      setRecording(false);
+      setElapsedMs(0);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 

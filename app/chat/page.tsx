@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo, type RefObject } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import AppHeader from "../components/AppHeader";
@@ -37,6 +37,8 @@ interface ReplyPreview {
 }
 interface Message {
   id: string;
+  /** Echo-matching nonce for our own optimistic sends — never persisted. */
+  clientId?: string;
   text: string;
   createdAt: string;
   sender: { id: string; name: string };
@@ -102,6 +104,38 @@ function lastSeenLabel(iso: string | null) {
   if (days < 7) return `Last seen ${days}d ago`;
   return `Last seen ${new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`;
 }
+
+function newClientId() {
+  // crypto.randomUUID is everywhere we support, but degrade gracefully.
+  return typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `c_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
+
+// Toggle `emoji` by `userId` on one message — pure, so the optimistic update
+// and its failure revert can share the exact same transform (a second apply
+// undoes the first).
+function withReactionToggled(
+  list: Message[],
+  messageId: string,
+  emoji: string,
+  userId: string,
+  userName: string
+): Message[] {
+  return list.map((m) => {
+    if (m.id !== messageId) return m;
+    const reactions = (m.reactions ?? []).slice();
+    const idx = reactions.findIndex((r) => r.userId === userId && r.emoji === emoji);
+    if (idx === -1) reactions.push({ userId, userName, emoji });
+    else reactions.splice(idx, 1);
+    return { ...m, reactions };
+  });
+}
+
+// Sticker key → signed URL, so optimistic sticker bubbles can show the actual
+// sticker (the picker only hands us the R2 key). Module-level: survives
+// remounts. Entries are 1h-signed URLs — plenty for a pending bubble.
+const stickerUrlCache = new Map<string, string>();
 
 function isAudioUrl(url: string) {
   const path = url.split("?")[0];
@@ -227,6 +261,140 @@ function ReactionChips({
   );
 }
 
+// ── Composer ────────────────────────────────────────────────────────
+// Owns the draft text locally so each keystroke re-renders just this pill —
+// not the entire message list in ChatPage.
+function Composer({
+  textareaRef,
+  replyTo,
+  attachmentCount,
+  hasReadyAttachment,
+  sending,
+  voiceOpen,
+  stickerPickerOpen,
+  onSend,
+  onTyping,
+  onAttach,
+  onVoice,
+  onStickerToggle,
+}: {
+  textareaRef: RefObject<HTMLTextAreaElement | null>;
+  replyTo: ReplyPreview | null;
+  attachmentCount: number;
+  hasReadyAttachment: boolean;
+  sending: boolean;
+  voiceOpen: boolean;
+  stickerPickerOpen: boolean;
+  /** Kicks off the send; returns true when accepted (draft should clear). */
+  onSend: (raw: string) => boolean;
+  onTyping: () => void;
+  onAttach: () => void;
+  onVoice: () => void;
+  onStickerToggle: () => void;
+}) {
+  const [text, setText] = useState("");
+
+  // Auto-grow textarea
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, 160) + "px";
+  }, [text, replyTo, textareaRef]);
+
+  const trySend = () => {
+    if (onSend(text)) setText("");
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      trySend();
+    }
+  };
+
+  const canSend = (text.trim().length > 0 || hasReadyAttachment) && !sending;
+
+  return (
+    <div className="flex items-end gap-1 bg-white/[0.05] border border-white/10 rounded-[28px] pl-1.5 pr-1.5 py-1.5 focus-within:border-rose-400/50 focus-within:bg-white/[0.07] transition-colors">
+      <motion.button
+        type="button"
+        onClick={onAttach}
+        disabled={attachmentCount >= MAX_ATTACHMENTS || voiceOpen}
+        aria-label="Attach images"
+        whileTap={tapPress}
+        className="flex items-center justify-center w-10 h-10 shrink-0 self-end rounded-full bg-rose-200/95 hover:bg-rose-100 active:bg-rose-200 disabled:opacity-40 disabled:cursor-not-allowed text-rose-950 cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+      >
+        <Camera className="w-5 h-5" aria-hidden />
+      </motion.button>
+
+      <label htmlFor="chat-input" className="sr-only">Message</label>
+      <textarea
+        id="chat-input"
+        ref={textareaRef}
+        rows={1}
+        value={text}
+        onChange={(e) => {
+          const value = e.target.value.slice(0, 2000);
+          setText(value);
+          if (value.trim()) onTyping();
+        }}
+        onKeyDown={onKeyDown}
+        placeholder={
+          replyTo ? `Reply to ${replyTo.sender.name}...` : attachmentCount ? "Add a caption..." : "Message..."
+        }
+        className="flex-1 min-w-0 resize-none self-center bg-transparent border-0 px-2.5 py-2 text-base sm:text-[15px] leading-6 text-white placeholder-white/50 focus:outline-none max-h-40"
+      />
+
+      <motion.button
+        type="button"
+        onClick={onVoice}
+        disabled={voiceOpen}
+        aria-label="Record voice note"
+        whileTap={tapPress}
+        className="flex items-center justify-center w-9 h-9 shrink-0 self-end rounded-full text-white/75 hover:text-rose-300 hover:bg-white/[0.06] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+      >
+        <Mic className="w-5 h-5" aria-hidden />
+      </motion.button>
+
+      <motion.button
+        type="button"
+        data-sticker-trigger
+        onClick={onStickerToggle}
+        disabled={voiceOpen}
+        aria-label="Open stickers"
+        aria-expanded={stickerPickerOpen}
+        whileTap={tapPress}
+        className={`flex items-center justify-center w-9 h-9 shrink-0 self-end rounded-full transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 disabled:opacity-40 disabled:cursor-not-allowed ${
+          stickerPickerOpen ? "bg-rose-500/25 text-rose-200" : "text-white/75 hover:text-rose-300 hover:bg-white/[0.06]"
+        }`}
+      >
+        <Sparkles className="w-5 h-5" aria-hidden />
+      </motion.button>
+
+      <motion.button
+        type="button"
+        onClick={trySend}
+        disabled={!canSend}
+        aria-label="Send message"
+        whileTap={tapPress}
+        whileHover={canSend ? { scale: 1.04 } : undefined}
+        className={`flex items-center justify-center w-10 h-10 shrink-0 self-end rounded-full transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 ${
+          canSend
+            ? "bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-md shadow-rose-700/30"
+            : "text-white/55 hover:text-rose-300 hover:bg-white/[0.06] disabled:cursor-not-allowed"
+        }`}
+      >
+        {sending ? (
+          <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-orbit" aria-hidden />
+        ) : (
+          <Send className="w-[18px] h-[18px] -ml-0.5" aria-hidden />
+        )}
+      </motion.button>
+    </div>
+  );
+}
+
 // ── Page ─────────────────────────────────────────────────────────────
 export default function ChatPage() {
   const { data: session, status } = useSession();
@@ -234,7 +402,6 @@ export default function ChatPage() {
   const toast = useToast();
 
   const [messages, setMessages] = useState<Message[]>([]);
-  const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [stickerPickerOpen, setStickerPickerOpen] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
@@ -246,7 +413,9 @@ export default function ChatPage() {
   const [replyTo, setReplyTo] = useState<ReplyPreview | null>(null);
   const [presence, setPresence] = useState<Map<string, Presence>>(new Map());
   const [typing, setTyping] = useState<{ userId: string; userName: string; until: number } | null>(null);
-  const [now, setNow] = useState(Date.now()); // re-render every minute for "X min ago"
+  // Minute tick — value only forces re-renders for "X min ago" labels, so it
+  // can start at 0 (Date.now() during render would be impure).
+  const [now, setNow] = useState(0);
   const [wallpaper, setWallpaper] = useState<WallpaperId>(DEFAULT_WALLPAPER);
   const [wallpaperImage, setWallpaperImage] = useState<string | null>(null);
   const [wallpaperUploading, setWallpaperUploading] = useState(false);
@@ -353,14 +522,6 @@ export default function ChatPage() {
     [applyWallpaper, toast]
   );
 
-  // Auto-grow textarea
-  useEffect(() => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    ta.style.height = "auto";
-    ta.style.height = Math.min(ta.scrollHeight, 160) + "px";
-  }, [text, replyTo]);
-
   // Close action menu on Esc + outside click handled by backdrop in the menu itself
   useEffect(() => {
     if (!actionFor) return;
@@ -433,8 +594,56 @@ export default function ChatPage() {
   useEffect(() => {
     if (status !== "authenticated" || !loaded) return;
     const es = new EventSource("/api/chat/stream");
-    es.onopen = () => setConnected(true);
-    es.onerror = () => setConnected(false);
+
+    // EventSource auto-reconnects after a network drop, but anything
+    // published while the socket was down is gone — on the reopen that
+    // follows an error, fetch the gap since the newest confirmed message.
+    let sawError = false;
+    let disposed = false;
+    let catchingUp = false;
+    const catchUp = async () => {
+      if (catchingUp) return; // one loop at a time
+      catchingUp = true;
+      try {
+        for (let hasMore = true; hasMore && !disposed; ) {
+          // Baseline: newest message the server actually confirmed (skip
+          // optimistic pending/failed ones — their timestamps are local).
+          let since: string | null = null;
+          for (let i = messagesRef.current.length - 1; i >= 0; i--) {
+            const m = messagesRef.current[i];
+            if (!m.pending && !m.id.startsWith("tmp_")) { since = m.createdAt; break; }
+          }
+          if (!since) break; // nothing loaded yet — initial history fetch covers it
+          const res = await fetch(`/api/chat?since=${encodeURIComponent(since)}`);
+          if (!res.ok || disposed) break;
+          const batch: Message[] = await res.json();
+          hasMore = res.headers.get("X-Has-More") === "true"; // missing header ⇒ done
+          if (batch.length === 0) break;
+          setMessages((prev) => {
+            const have = new Set(prev.map((x) => x.id));
+            const fresh = batch.filter((x) => !have.has(x.id));
+            if (!fresh.length) return prev;
+            // Gap messages are all newer than `since`; the (stable) sort keeps
+            // chronology even if a live SSE message landed mid-fetch.
+            return [...prev, ...fresh].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+          });
+          if (autoStickRef.current) requestAnimationFrame(() => scrollToBottom());
+        }
+      } catch {/* transient — the next reconnect retries */}
+      finally { catchingUp = false; }
+    };
+
+    es.onopen = () => {
+      setConnected(true);
+      if (sawError) {
+        sawError = false;
+        void catchUp();
+      }
+    };
+    es.onerror = () => {
+      setConnected(false);
+      sawError = true;
+    };
 
     es.addEventListener("message", (e) => {
       try {
@@ -444,7 +653,14 @@ export default function ChatPage() {
           if (m.sender.id === myIdRef.current) {
             for (let i = prev.length - 1; i >= 0; i--) {
               const x = prev[i];
-              if (x.pending && x.sender.id === m.sender.id && x.text === m.text) {
+              if (!x.pending) continue;
+              // Prefer the exact clientId nonce (two attachment-only sends
+              // both have text "" — the heuristic can't tell them apart);
+              // fall back to it only for echoes without one.
+              const matches = m.clientId
+                ? x.clientId === m.clientId
+                : x.sender.id === m.sender.id && x.text === m.text;
+              if (matches) {
                 const next = prev.slice();
                 next[i] = m;
                 return next;
@@ -548,20 +764,18 @@ export default function ChatPage() {
     });
 
     return () => {
+      disposed = true;
       es.close();
       setConnected(false);
     };
   }, [status, loaded, scrollToBottom, applyWallpaper]);
 
-  // Auto-clear typing indicator when its TTL passes
+  // Auto-clear typing indicator when its TTL passes. Always via a timeout —
+  // even when already expired — so no setState runs synchronously in the
+  // effect body.
   useEffect(() => {
     if (!typing) return;
-    const remaining = typing.until - Date.now();
-    if (remaining <= 0) {
-      setTyping(null);
-      return;
-    }
-    const t = setTimeout(() => setTyping(null), remaining);
+    const t = setTimeout(() => setTyping(null), Math.max(0, typing.until - Date.now()));
     return () => clearTimeout(t);
   }, [typing]);
 
@@ -582,8 +796,21 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
-    if (loaded && messages.length > 0) markRead();
+    if (!loaded || messages.length === 0) return;
+    // Only claim "read" when plausibly actually read: tab visible AND still
+    // pinned to the bottom of the list (not scrolled up in history).
+    if (document.visibilityState !== "visible" || !autoStickRef.current) return;
+    markRead();
   }, [loaded, messages, markRead]);
+
+  // Tab became visible while stuck to bottom → what's on screen counts as read.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === "visible" && autoStickRef.current) markRead();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [markRead]);
 
   // ── Scroll handlers ──────────────────────────────────────────────
   const loadMore = useCallback(async () => {
@@ -642,23 +869,46 @@ export default function ChatPage() {
     }).catch(() => {});
   }, []);
 
-  const onTextChange = useCallback((value: string) => {
-    setText(value.slice(0, 2000));
-    if (value.trim()) {
-      const now = Date.now();
-      if (now - lastTypingPingRef.current > TYPING_DEBOUNCE_MS) {
-        lastTypingPingRef.current = now;
-        pingTyping(true);
-      }
-      if (stoppedTypingTimeoutRef.current) clearTimeout(stoppedTypingTimeoutRef.current);
-      stoppedTypingTimeoutRef.current = setTimeout(() => {
-        pingTyping(false);
-        lastTypingPingRef.current = 0;
-      }, 2_500);
+  // Debounced "I'm typing" broadcast — the composer calls this per keystroke
+  // (the draft text itself lives in <Composer/>; only the refs live here so
+  // send() can cancel the pending "stopped typing" ping).
+  const notifyTyping = useCallback(() => {
+    const nowMs = Date.now();
+    if (nowMs - lastTypingPingRef.current > TYPING_DEBOUNCE_MS) {
+      lastTypingPingRef.current = nowMs;
+      pingTyping(true);
     }
+    if (stoppedTypingTimeoutRef.current) clearTimeout(stoppedTypingTimeoutRef.current);
+    stoppedTypingTimeoutRef.current = setTimeout(() => {
+      pingTyping(false);
+      lastTypingPingRef.current = 0;
+    }, 2_500);
   }, [pingTyping]);
 
   // ── Attachment upload ───────────────────────────────────────────
+  // Every object URL we've minted that might still be on screen (composer
+  // previews, pending/failed optimistic bubbles). The old `[]`-dep cleanup
+  // closed over the initial empty `attachments` and revoked nothing — this
+  // ref always holds the live set instead. The set-membership guard makes
+  // revocation idempotent.
+  const blobUrlsRef = useRef<Set<string>>(new Set());
+  const trackBlobUrl = useCallback((url: string) => {
+    blobUrlsRef.current.add(url);
+    return url;
+  }, []);
+  const revokeBlobUrls = useCallback((urls: Iterable<string>) => {
+    for (const u of urls) {
+      if (blobUrlsRef.current.delete(u)) URL.revokeObjectURL(u);
+    }
+  }, []);
+  useEffect(() => {
+    const urls = blobUrlsRef.current; // same Set instance for the whole life of the page
+    return () => {
+      urls.forEach((u) => URL.revokeObjectURL(u));
+      urls.clear();
+    };
+  }, []);
+
   const uploadOne = useCallback(async (att: PendingAttachment) => {
     try {
       const sig = await fetch("/api/upload/sign", {
@@ -700,32 +950,44 @@ export default function ChatPage() {
       additions.push({
         id: `att_${Date.now()}_${Math.random().toString(36).slice(2)}`,
         file,
-        previewUrl: URL.createObjectURL(file),
+        previewUrl: trackBlobUrl(URL.createObjectURL(file)),
         status: "uploading",
       });
     }
     if (!additions.length) return;
     setAttachments((prev) => [...prev, ...additions]);
     additions.forEach(uploadOne);
-  }, [attachments.length, uploadOne, toast]);
+  }, [attachments.length, uploadOne, toast, trackBlobUrl]);
 
   const removeAttachment = useCallback((id: string) => {
     setAttachments((prev) => {
       const target = prev.find((a) => a.id === id);
-      if (target) URL.revokeObjectURL(target.previewUrl);
+      if (target) revokeBlobUrls([target.previewUrl]);
       return prev.filter((a) => a.id !== id);
     });
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      attachments.forEach((a) => URL.revokeObjectURL(a.previewUrl));
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [revokeBlobUrls]);
 
   // ── Voice notes: upload helper ──────────────────────────────────
   const sendVoiceNote = useCallback(async (blob: Blob, mime: string) => {
+    const tempId = `tmp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const clientId = newClientId();
+    // Local preview so the pending bubble isn't empty. The #fragment gives
+    // the blob URL an audio "extension" so isAudioUrl() routes it to
+    // AudioBubble; browsers ignore fragments when resolving blob: URLs.
+    const ext = mime.includes("mp4") ? "m4a" : mime.includes("ogg") ? "ogg" : "webm";
+    const bareUrl = trackBlobUrl(URL.createObjectURL(blob));
+    const optimistic: Message = {
+      id: tempId,
+      clientId,
+      text: "",
+      createdAt: new Date().toISOString(),
+      sender: { id: session?.user?.id || "me", name: session?.user?.name || "You" },
+      attachments: [`${bareUrl}#voice.${ext}`],
+      pending: true,
+    };
+    setMessages((prev) => [...prev, optimistic]);
+    autoStickRef.current = true;
+    requestAnimationFrame(() => scrollToBottom());
     try {
       const sig = await fetch("/api/upload/sign", {
         method: "POST",
@@ -740,23 +1002,10 @@ export default function ChatPage() {
       const put = await fetch(url, { method: "PUT", body: blob, headers: { "Content-Type": mime } });
       if (!put.ok) throw new Error("Upload failed");
       // Now POST as a chat message with this single attachment
-      const tempId = `tmp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-      const optimistic: Message = {
-        id: tempId,
-        text: "",
-        createdAt: new Date().toISOString(),
-        sender: { id: session?.user?.id || "me", name: session?.user?.name || "You" },
-        attachments: [],
-        pending: true,
-      };
-      setMessages((prev) => [...prev, optimistic]);
-      autoStickRef.current = true;
-      requestAnimationFrame(() => scrollToBottom());
-
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: "", attachments: [key] }),
+        body: JSON.stringify({ text: "", attachments: [key], clientId }),
       });
       if (!res.ok) throw new Error();
       const saved: Message = await res.json();
@@ -764,21 +1013,29 @@ export default function ChatPage() {
         if (prev.some((m) => m.id === saved.id)) return prev.filter((m) => m.id !== tempId);
         return prev.map((m) => (m.id === tempId ? saved : m));
       });
+      revokeBlobUrls([bareUrl]); // delivered bubble streams the signed URL now
     } catch (err) {
+      // Mark failed (don't strand a "Sending…" bubble). Keep the blob URL —
+      // the failed bubble's player still uses it; it's swept on unmount.
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...m, pending: false, failed: true } : m))
+      );
       toast.show(err instanceof Error ? err.message : "Voice note failed", "error");
     }
-  }, [session, scrollToBottom, toast]);
+  }, [session, scrollToBottom, toast, trackBlobUrl, revokeBlobUrls]);
 
   // ── Send + sticker ───────────────────────────────────────────────
-  const send = useCallback(async () => {
-    const trimmed = text.trim();
+  // Returns true when the send was actually kicked off — the composer only
+  // clears its draft in that case (guards run synchronously up front).
+  const send = useCallback((rawText: string): boolean => {
+    const trimmed = rawText.trim();
     const ready = attachments.filter((a) => a.status === "done" && a.key).map((a) => a.key as string);
     const stillUploading = attachments.some((a) => a.status === "uploading");
-    if (!trimmed && ready.length === 0) return;
-    if (sending) return;
+    if (!trimmed && ready.length === 0) return false;
+    if (sending) return false;
     if (stillUploading) {
       toast.show("Hold on — attachments are still uploading", "error");
-      return;
+      return false;
     }
     setSending(true);
     pingTyping(false);
@@ -786,9 +1043,11 @@ export default function ChatPage() {
     if (stoppedTypingTimeoutRef.current) clearTimeout(stoppedTypingTimeoutRef.current);
 
     const tempId = `tmp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const clientId = newClientId();
     const replyToSnapshot = replyTo;
     const optimistic: Message = {
       id: tempId,
+      clientId,
       text: trimmed,
       createdAt: new Date().toISOString(),
       sender: { id: session?.user?.id || "me", name: session?.user?.name || "You" },
@@ -797,59 +1056,91 @@ export default function ChatPage() {
       pending: true,
     };
     setMessages((prev) => [...prev, optimistic]);
-    setText("");
     const blobsToRevoke = attachments.map((a) => a.previewUrl);
     setAttachments([]);
     setReplyTo(null);
     autoStickRef.current = true;
     requestAnimationFrame(() => scrollToBottom());
 
+    void (async () => {
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: trimmed,
+            attachments: ready,
+            replyToId: replyToSnapshot?.id,
+            clientId,
+          }),
+        });
+        if (!res.ok) throw new Error();
+        const saved: Message = await res.json();
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === saved.id)) return prev.filter((m) => m.id !== tempId);
+          return prev.map((m) => (m.id === tempId ? saved : m));
+        });
+        revokeBlobUrls(blobsToRevoke);
+      } catch {
+        // Don't revoke here — the failed bubble still shows these previews.
+        // They stay tracked in blobUrlsRef and get swept on unmount.
+        setMessages((prev) =>
+          prev.map((m) => (m.id === tempId ? { ...m, pending: false, failed: true } : m))
+        );
+        toast.show("Message didn't send", "error");
+      } finally {
+        setSending(false);
+        textareaRef.current?.focus();
+      }
+    })();
+    return true;
+  }, [attachments, sending, session, scrollToBottom, toast, replyTo, pingTyping, revokeBlobUrls]);
+
+  // Resolve a sticker key to a displayable signed URL (best-effort) by
+  // re-listing the packs — the picker's onSelect only hands us the R2 key.
+  const resolveStickerUrl = useCallback(async (key: string): Promise<string | null> => {
+    const hit = stickerUrlCache.get(key);
+    if (hit) return hit;
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: trimmed,
-          attachments: ready,
-          replyToId: replyToSnapshot?.id,
-        }),
-      });
-      if (!res.ok) throw new Error();
-      const saved: Message = await res.json();
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === saved.id)) return prev.filter((m) => m.id !== tempId);
-        return prev.map((m) => (m.id === tempId ? saved : m));
-      });
-      blobsToRevoke.forEach((u) => URL.revokeObjectURL(u));
+      const res = await fetch("/api/stickers");
+      if (!res.ok) return null;
+      const packs = (await res.json()) as { stickers: { key: string; url: string }[] }[];
+      for (const p of packs) for (const s of p.stickers) stickerUrlCache.set(s.key, s.url);
+      return stickerUrlCache.get(key) ?? null;
     } catch {
-      setMessages((prev) =>
-        prev.map((m) => (m.id === tempId ? { ...m, pending: false, failed: true } : m))
-      );
-      toast.show("Message didn't send", "error");
-    } finally {
-      setSending(false);
-      textareaRef.current?.focus();
+      return null;
     }
-  }, [text, attachments, sending, session, scrollToBottom, toast, replyTo, pingTyping]);
+  }, []);
 
   const sendSticker = useCallback(async (key: string) => {
     const tempId = `tmp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const clientId = newClientId();
+    const cachedUrl = stickerUrlCache.get(key);
     const optimistic: Message = {
       id: tempId,
+      clientId,
       text: "",
       createdAt: new Date().toISOString(),
       sender: { id: session?.user?.id || "me", name: session?.user?.name || "You" },
-      attachments: [],
+      attachments: cachedUrl ? [cachedUrl] : [],
       pending: true,
     };
     setMessages((prev) => [...prev, optimistic]);
     autoStickRef.current = true;
     requestAnimationFrame(() => scrollToBottom());
+    if (!cachedUrl) {
+      // Fill the pending bubble with the sticker itself once its signed URL
+      // resolves. If the real message already replaced tempId, this no-ops.
+      void resolveStickerUrl(key).then((url) => {
+        if (!url) return;
+        setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, attachments: [url] } : m)));
+      });
+    }
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: "", attachments: [key] }),
+        body: JSON.stringify({ text: "", attachments: [key], clientId }),
       });
       if (!res.ok) throw new Error();
       const saved: Message = await res.json();
@@ -861,30 +1152,14 @@ export default function ChatPage() {
       setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, pending: false, failed: true } : m)));
       toast.show("Sticker didn't send", "error");
     }
-  }, [session, scrollToBottom, toast]);
+  }, [session, scrollToBottom, toast, resolveStickerUrl]);
 
   // ── Reactions / reply / delete via action menu ───────────────────
   const toggleReaction = useCallback(async (messageId: string, emoji: string) => {
+    const userId = myIdRef.current ?? "";
+    const userName = session?.user?.name ?? "You";
     // Optimistic toggle
-    setMessages((prev) =>
-      prev.map((m) => {
-        if (m.id !== messageId) return m;
-        const reactions = (m.reactions ?? []).slice();
-        const idx = reactions.findIndex(
-          (r) => r.userId === myIdRef.current && r.emoji === emoji
-        );
-        if (idx === -1) {
-          reactions.push({
-            userId: myIdRef.current ?? "",
-            userName: session?.user?.name ?? "You",
-            emoji,
-          });
-        } else {
-          reactions.splice(idx, 1);
-        }
-        return { ...m, reactions };
-      })
-    );
+    setMessages((prev) => withReactionToggled(prev, messageId, emoji, userId, userName));
     try {
       const res = await fetch("/api/chat/reactions", {
         method: "POST",
@@ -893,12 +1168,15 @@ export default function ChatPage() {
       });
       if (!res.ok) throw new Error();
     } catch {
+      // Toggle is its own inverse — re-apply to revert just this reaction,
+      // leaving everything that arrived meanwhile intact.
+      setMessages((prev) => withReactionToggled(prev, messageId, emoji, userId, userName));
       toast.show("Reaction failed", "error");
     }
   }, [session, toast]);
 
   const deleteMessage = useCallback(async (id: string) => {
-    const prev = messagesRef.current;
+    const removed = messagesRef.current.find((x) => x.id === id);
     setMessages((m) => m.filter((x) => x.id !== id));
     try {
       const res = await fetch("/api/chat", {
@@ -908,7 +1186,17 @@ export default function ChatPage() {
       });
       if (!res.ok) throw new Error();
     } catch {
-      setMessages(prev);
+      // Re-insert only the removed message (in createdAt order) — restoring a
+      // whole snapshot would clobber anything that arrived since.
+      if (removed) {
+        setMessages((prev) => {
+          if (prev.some((x) => x.id === id)) return prev;
+          const at = prev.findIndex((x) => x.createdAt > removed.createdAt);
+          const next = prev.slice();
+          next.splice(at === -1 ? next.length : at, 0, removed);
+          return next;
+        });
+      }
       toast.show("Couldn't delete message", "error");
     }
   }, [toast]);
@@ -916,13 +1204,6 @@ export default function ChatPage() {
   const onBubbleClick = useCallback((id: string, el: HTMLElement) => {
     setActionFor({ id, rect: el.getBoundingClientRect() });
   }, []);
-
-  const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      send();
-    }
-  }, [send]);
 
   // ── Group + render ───────────────────────────────────────────────
   const grouped = useMemo(() => {
@@ -1045,6 +1326,10 @@ export default function ChatPage() {
               <div className="sticky top-0 z-10 self-center px-3 py-1 my-1 rounded-full bg-[#0a0305]/80 backdrop-blur border border-white/10 text-[11px] text-white/60 uppercase tracking-wider">
                 {group.label}
               </div>
+              {/* Rows are deliberately not memo()-ized: AnimatePresence
+                  popLayout tracks child identity for exit/layout animations
+                  and memo wrappers risk breaking them. Extracting <Composer/>
+                  already keeps keystrokes from re-rendering this list. */}
               <AnimatePresence initial={false} mode="popLayout">
                 {group.items.map((m, i) => {
                   const mine = m.sender.id === myId;
@@ -1410,83 +1695,20 @@ export default function ChatPage() {
             aria-hidden
           />
 
-          {(() => {
-            const canSend = (text.trim().length > 0 || attachments.some((a) => a.status === "done")) && !sending;
-            return (
-              <div className="flex items-end gap-1 bg-white/[0.05] border border-white/10 rounded-[28px] pl-1.5 pr-1.5 py-1.5 focus-within:border-rose-400/50 focus-within:bg-white/[0.07] transition-colors">
-                <motion.button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={attachments.length >= MAX_ATTACHMENTS || voiceOpen}
-                  aria-label="Attach images"
-                  whileTap={tapPress}
-                  className="flex items-center justify-center w-10 h-10 shrink-0 self-end rounded-full bg-rose-200/95 hover:bg-rose-100 active:bg-rose-200 disabled:opacity-40 disabled:cursor-not-allowed text-rose-950 cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
-                >
-                  <Camera className="w-5 h-5" aria-hidden />
-                </motion.button>
-
-                <label htmlFor="chat-input" className="sr-only">Message</label>
-                <textarea
-                  id="chat-input"
-                  ref={textareaRef}
-                  rows={1}
-                  value={text}
-                  onChange={(e) => onTextChange(e.target.value)}
-                  onKeyDown={onKeyDown}
-                  placeholder={
-                    replyTo ? `Reply to ${replyTo.sender.name}...` : attachments.length ? "Add a caption..." : "Message..."
-                  }
-                  className="flex-1 min-w-0 resize-none self-center bg-transparent border-0 px-2.5 py-2 text-base sm:text-[15px] leading-6 text-white placeholder-white/50 focus:outline-none max-h-40"
-                />
-
-                <motion.button
-                  type="button"
-                  onClick={() => setVoiceOpen(true)}
-                  disabled={voiceOpen}
-                  aria-label="Record voice note"
-                  whileTap={tapPress}
-                  className="flex items-center justify-center w-9 h-9 shrink-0 self-end rounded-full text-white/75 hover:text-rose-300 hover:bg-white/[0.06] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
-                >
-                  <Mic className="w-5 h-5" aria-hidden />
-                </motion.button>
-
-                <motion.button
-                  type="button"
-                  data-sticker-trigger
-                  onClick={() => setStickerPickerOpen((v) => !v)}
-                  disabled={voiceOpen}
-                  aria-label="Open stickers"
-                  aria-expanded={stickerPickerOpen}
-                  whileTap={tapPress}
-                  className={`flex items-center justify-center w-9 h-9 shrink-0 self-end rounded-full transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 disabled:opacity-40 disabled:cursor-not-allowed ${
-                    stickerPickerOpen ? "bg-rose-500/25 text-rose-200" : "text-white/75 hover:text-rose-300 hover:bg-white/[0.06]"
-                  }`}
-                >
-                  <Sparkles className="w-5 h-5" aria-hidden />
-                </motion.button>
-
-                <motion.button
-                  type="button"
-                  onClick={send}
-                  disabled={!canSend}
-                  aria-label="Send message"
-                  whileTap={tapPress}
-                  whileHover={canSend ? { scale: 1.04 } : undefined}
-                  className={`flex items-center justify-center w-10 h-10 shrink-0 self-end rounded-full transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 ${
-                    canSend
-                      ? "bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-md shadow-rose-700/30"
-                      : "text-white/55 hover:text-rose-300 hover:bg-white/[0.06] disabled:cursor-not-allowed"
-                  }`}
-                >
-                  {sending ? (
-                    <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-orbit" aria-hidden />
-                  ) : (
-                    <Send className="w-[18px] h-[18px] -ml-0.5" aria-hidden />
-                  )}
-                </motion.button>
-              </div>
-            );
-          })()}
+          <Composer
+            textareaRef={textareaRef}
+            replyTo={replyTo}
+            attachmentCount={attachments.length}
+            hasReadyAttachment={attachments.some((a) => a.status === "done")}
+            sending={sending}
+            voiceOpen={voiceOpen}
+            stickerPickerOpen={stickerPickerOpen}
+            onSend={send}
+            onTyping={notifyTyping}
+            onAttach={() => fileInputRef.current?.click()}
+            onVoice={() => setVoiceOpen(true)}
+            onStickerToggle={() => setStickerPickerOpen((v) => !v)}
+          />
         </div>
       </div>
     </div>

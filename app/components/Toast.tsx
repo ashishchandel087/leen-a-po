@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
 import { Check, X as XIcon, Heart } from "./Icons";
 import { motion, AnimatePresence, toastVariants } from "./motion";
 
@@ -26,8 +26,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2600);
   }, []);
 
+  // Stable context value — otherwise every toast add/expire re-renders the
+  // provider and hands consumers a fresh object, re-firing their effects.
+  const value = useMemo(() => ({ show }), [show]);
+
   return (
-    <Ctx.Provider value={{ show }}>
+    <Ctx.Provider value={value}>
       {children}
       <div
         className="fixed left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 items-center pointer-events-none"

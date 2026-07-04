@@ -24,7 +24,12 @@ export default function Home() {
 
   useEffect(() => {
     fetch("/api/apod")
-      .then((r) => r.json())
+      .then((r) => {
+        // Throw on API errors so the error state renders instead of crashing
+        // on a body with no `explanation`
+        if (!r.ok) throw new Error();
+        return r.json();
+      })
       .then((d) => {
         setData(d);
         setLoading(false);

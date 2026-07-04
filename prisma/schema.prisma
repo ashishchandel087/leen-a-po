@@ -22,6 +22,7 @@ model User {
   messages    Message[]
   memories    Memory[]
   reactions   MessageReaction[]
+  dailyAnswers DailyAnswer[]
 }
 
 model MoodLog {
@@ -138,6 +139,37 @@ model Sticker {
   deletedAt DateTime?
 
   @@index([packId])
+}
+
+// Question of the day: one row per date, answers hidden from each other
+// until both partners have answered ("blind reveal").
+model DailyQuestion {
+  id        String        @id @default(cuid())
+  date      String        @unique // YYYY-MM-DD in the app timezone (Asia/Kolkata)
+  prompt    String
+  answers   DailyAnswer[]
+  createdAt DateTime      @default(now())
+}
+
+model DailyAnswer {
+  id         String        @id @default(cuid())
+  questionId String
+  question   DailyQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  text       String
+  createdAt  DateTime      @default(now())
+
+  // One answer per user per question — editable until revealed.
+  @@unique([questionId, userId])
+}
+
+// Dedupe ledger for scheduled pushes (occasion countdowns, daily question).
+// A unique key per logical notification means a re-run cron can't double-send.
+model NotificationLog {
+  id     String   @id @default(cuid())
+  key    String   @unique // e.g. "occasion:<id>:<daysLeft>" or "question:<date>"
+  sentAt DateTime @default(now())
 }
 
 model Memory {
